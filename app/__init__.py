@@ -1,0 +1,2 @@
+"""VisionGuard AI application package."""
+

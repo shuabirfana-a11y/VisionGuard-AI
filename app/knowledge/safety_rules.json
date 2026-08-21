@@ -1,0 +1,46 @@
+[
+  {
+    "id": "VG-FIRE-001",
+    "category": "fire",
+    "title": "疑似明火视觉证据核查",
+    "basis": "当视觉工具返回疑似明火目标时，应结合现场位置、可燃物、热源与人员状态进行人工复核，并优先执行企业既有报警和应急流程。",
+    "recommended_actions": [
+      "立即通知现场安全人员核查疑似明火区域。",
+      "在确保人员安全的前提下隔离周边可燃物和点火源。",
+      "如现场确认火情，按企业预案报警、疏散并启动应急处置。"
+    ],
+    "source": "VisionGuard AI内部安全规则",
+    "source_title": "工业视觉风险辅助分析规则集",
+    "source_section": "疑似明火核查",
+    "source_version": "0.3-draft"
+  },
+  {
+    "id": "VG-SMOKE-001",
+    "category": "smoke",
+    "title": "疑似烟雾视觉证据核查",
+    "basis": "疑似烟雾可能与燃烧、蒸汽、粉尘或成像条件有关，单帧视觉结果不足以直接判定火灾。",
+    "recommended_actions": [
+      "核查烟雾候选区域的设备工况、气味、温度和持续时间。",
+      "调取相邻时段或其他视角图像，排除蒸汽、粉尘和光照干扰。",
+      "如伴随温升、火焰或报警信号，升级现场处置等级。"
+    ],
+    "source": "VisionGuard AI内部安全规则",
+    "source_title": "工业视觉风险辅助分析规则集",
+    "source_section": "疑似烟雾核查",
+    "source_version": "0.3-draft"
+  },
+  {
+    "id": "VG-NONE-001",
+    "category": "no_detection",
+    "title": "无明确视觉证据时的复核边界",
+    "basis": "单张图片未检出风险目标不等于现场不存在风险，遮挡、画质、视角和模型能力均可能造成漏检。",
+    "recommended_actions": [
+      "结合现场巡检、传感器和其他视角继续核查。",
+      "记录图片质量、模型版本和分析时间，避免将未检出表述为安全结论。"
+    ],
+    "source": "VisionGuard AI内部安全规则",
+    "source_title": "工业视觉风险辅助分析规则集",
+    "source_section": "未检出与人工复核边界",
+    "source_version": "0.3-draft"
+  }
+]

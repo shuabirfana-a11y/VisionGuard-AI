@@ -1,0 +1,38 @@
+name: 功能任务
+description: VisionGuard AI功能、实验或材料任务
+title: "[Task] "
+labels: ["task"]
+body:
+  - type: textarea
+    id: objective
+    attributes:
+      label: 目标
+      description: 描述要解决的问题和比赛价值。
+    validations:
+      required: true
+  - type: textarea
+    id: deliverables
+    attributes:
+      label: 交付物
+      description: 列出代码、数据说明、指标或文档。
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 验收标准
+      description: 填写可验证、可复现的验收条件。
+    validations:
+      required: true
+  - type: checkboxes
+    id: boundary
+    attributes:
+      label: 项目边界
+      options:
+        - label: 不访问、复制、修改或依赖FactorySafe代码
+          required: true
+        - label: 不提交密钥、个人信息或未授权数据
+          required: true
+        - label: 不把计划能力或合成结果描述为真实成果
+          required: true
+
