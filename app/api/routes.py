@@ -3,7 +3,15 @@ from time import perf_counter
 from fastapi import APIRouter, File, Form, HTTPException, Response, UploadFile
 
 from app.config import settings
-from app.schemas import AnalysisRecord, AnalysisResponse, DemoCaseInfo, HealthResponse, MetricsResponse
+from app.schemas import (
+    AnalysisRecord,
+    AnalysisResponse,
+    DemoCaseInfo,
+    FollowUpRequest,
+    FollowUpResponse,
+    HealthResponse,
+    MetricsResponse,
+)
 from app.services.demo_cases import CASES, render_demo_case
 from app.services.exports import report_html, report_json
 from app.services.vision.demo import InvalidImageError
@@ -14,25 +22,39 @@ router = APIRouter(prefix="/api/v1")
 
 @router.get("/health", response_model=HealthResponse)
 async def health() -> HealthResponse:
-    from app.main import agent
+    from app.main import agent, vision_runtime_status
 
     return HealthResponse(
         status="ok",
         project="VisionGuard AI",
-        version="0.4.0",
+        version="0.12.0",
         vision_backend=settings.vision_backend,
         capabilities={
             "image_upload": "available",
             "agent_tool_calling": "available",
             "structured_risk_report": "available",
+            "traceable_knowledge_retrieval": "available",
+            "evidence_grounded_follow_up": "available",
             "reasoning_backend": settings.reasoning_backend,
             "llm_reasoning": (
                 "configured"
                 if settings.reasoning_backend == "llm" and settings.llm_base_url and settings.llm_api_key and settings.llm_model
                 else "deterministic_or_fallback"
             ),
-            "vector_rag": "planned",
+            "llm_model": settings.llm_model or None,
+            "llm_guardrails": [
+                "structured_json",
+                "evidence_id_allowlist",
+                "rule_id_allowlist",
+                "deterministic_fallback",
+            ],
+            "vector_rag": "category-constrained-tfidf-rag-v1",
             "yolo_model_configured": bool(settings.yolo_model_path),
+            "fire_classifier_enabled": settings.fire_classifier_enabled,
+            "fire_classifier_configured": bool(settings.fire_classifier_root),
+            "fire_classifier_mode": settings.fire_classifier_mode,
+            "fire_classifier_worker_count": settings.fire_classifier_worker_count,
+            "fire_classifier_runtime": dict(vision_runtime_status),
             "vision_fallback_enabled": settings.vision_fallback_enabled,
             "registered_tools": agent.tools.descriptions(),
         },
@@ -103,6 +125,16 @@ async def analysis_detail(request_id: str) -> AnalysisResponse:
     if result is None:
         raise HTTPException(status_code=404, detail="分析记录不存在或已过期")
     return result
+
+
+@router.post("/analyses/{request_id}/ask", response_model=FollowUpResponse)
+async def ask_follow_up(request_id: str, request: FollowUpRequest) -> FollowUpResponse:
+    from app.main import agent, analysis_store
+
+    result = analysis_store.get(request_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="分析记录不存在或已过期")
+    return await agent.answer_follow_up(result, request.question)
 
 
 @router.get("/analyses/{request_id}/report.html")

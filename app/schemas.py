@@ -4,6 +4,13 @@ from pydantic import BaseModel, Field
 
 
 RiskLevel = Literal["low", "medium", "high", "critical", "unknown"]
+FusionStatus = Literal[
+    "confirmed",
+    "classifier_only",
+    "detector_only",
+    "no_fire_evidence",
+    "classifier_unavailable",
+]
 
 
 class BoundingBox(BaseModel):
@@ -36,12 +43,40 @@ class InferenceMetadata(BaseModel):
     fallback_reason: str | None = None
 
 
+class FireClassificationEvidence(BaseModel):
+    evidence_id: str = "cls-fire-001"
+    category: Literal["fire"] = "fire"
+    label: str = "visible_fire"
+    available: bool
+    prediction: bool | None = None
+    probability: float | None = Field(default=None, ge=0, le=1)
+    threshold: float | None = Field(default=None, ge=0, le=1)
+    source: str
+    model_name: str
+    model_version: str
+    model_digest: str | None = None
+    device: str
+    inference_ms: float = Field(ge=0)
+    limitations: list[str] = Field(default_factory=list)
+    error: str | None = None
+
+
+class VisionFusionResult(BaseModel):
+    status: FusionStatus
+    summary: str
+    detector_fire_count: int = Field(ge=0)
+    classifier_fire: bool | None = None
+    requires_human_review: bool = True
+
+
 class VisionResult(BaseModel):
     image_width: int
     image_height: int
     detector: str
     inference: InferenceMetadata
     detections: list[DetectionEvidence]
+    fire_classification: FireClassificationEvidence | None = None
+    fusion: VisionFusionResult | None = None
     limitations: list[str] = Field(default_factory=list)
 
 
@@ -55,8 +90,13 @@ class KnowledgeEvidence(BaseModel):
     source_title: str
     source_section: str
     source_version: str
+    source_url: str | None = None
+    authority_level: Literal["law", "department_rule", "internal_method"] = "internal_method"
+    applicability: str = ""
     citation_id: str
     retrieval_score: float = Field(ge=0, le=1)
+    retrieval_method: str = "category-constrained-tfidf-rag-v1"
+    matched_terms: list[str] = Field(default_factory=list)
 
 
 class RiskItem(BaseModel):
@@ -114,6 +154,18 @@ class AnalysisResponse(BaseModel):
     risk: RiskAssessment
     reasoning: ReasoningResult
     report: SafetyReport
+    agent_trace: list[AgentTraceStep]
+
+
+class FollowUpRequest(BaseModel):
+    question: str = Field(min_length=2, max_length=500)
+
+
+class FollowUpResponse(BaseModel):
+    request_id: str
+    question: str
+    answer: str
+    reasoning: ReasoningResult
     agent_trace: list[AgentTraceStep]
 
 

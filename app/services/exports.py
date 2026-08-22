@@ -13,10 +13,25 @@ def report_html(result: AnalysisResponse) -> str:
         f"<li><b>{escape(item.evidence_id)}</b>：{escape(item.label)}，置信度 {item.confidence:.2%}，"
         f"位置 ({item.bbox.x1}, {item.bbox.y1})-({item.bbox.x2}, {item.bbox.y2})</li>"
         for item in result.vision.detections
-    ) or "<li>未获得明确视觉风险证据。</li>"
+    )
+    classification = result.vision.fire_classification
+    if classification and classification.available:
+        evidence += (
+            f"<li><b>{escape(classification.evidence_id)}</b>：整图可见火焰判断"
+            f"{'阳性' if classification.prediction else '阴性'}，概率 {classification.probability:.2%}，"
+            "不提供检测框</li>"
+        )
+    evidence = evidence or "<li>未获得明确视觉风险证据。</li>"
     citations = "".join(
-        f"<li>[{escape(item.citation_id)}] {escape(item.source_title)} / "
-        f"{escape(item.source_section)} / {escape(item.source_version)}</li>"
+        f"<li>[{escape(item.citation_id)}] "
+        + (
+            f'<a href="{escape(item.source_url, quote=True)}">{escape(item.source_title)}</a>'
+            if item.source_url
+            else escape(item.source_title)
+        )
+        + f" / {escape(item.source_section)} / {escape(item.source_version)}"
+        + f"<br><small>检索方式：{escape(item.retrieval_method)}；相关度：{item.retrieval_score:.1%}</small>"
+        + f"<br><small>适用边界：{escape(item.applicability)}</small></li>"
         for item in result.knowledge
     )
     actions = "".join(f"<li>{escape(item)}</li>" for item in result.report.actions)

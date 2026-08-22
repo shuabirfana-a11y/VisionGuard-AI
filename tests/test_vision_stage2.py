@@ -1,4 +1,5 @@
 import asyncio
+from hashlib import sha256
 from io import BytesIO
 
 from PIL import Image
@@ -8,6 +9,7 @@ from app.services.vision.fallback import FallbackVisionDetector
 from app.services.vision import build_detector
 from app.services.vision.yolo import YoloVisionDetector
 from app.config import Settings
+import pytest
 
 
 def image_bytes() -> bytes:
@@ -90,3 +92,18 @@ def test_yolo_configuration_without_weights_builds_demo_fallback():
     assert result.inference.backend == "demo"
     assert result.inference.fallback_used is True
     assert "YOLO_MODEL_PATH" in result.inference.fallback_reason
+
+
+def test_yolo_rejects_unexpected_model_hash_before_inference(tmp_path):
+    model_path = tmp_path / "candidate.pt"
+    model_path.write_bytes(b"verified-model-placeholder")
+    actual = sha256(model_path.read_bytes()).hexdigest()
+
+    with pytest.raises(RuntimeError, match="SHA-256校验失败") as exc_info:
+        YoloVisionDetector(
+            str(model_path),
+            model=FakeModel(),
+            expected_sha256="0" * 64,
+        )
+
+    assert actual in str(exc_info.value)

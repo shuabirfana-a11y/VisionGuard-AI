@@ -13,15 +13,29 @@ class DeterministicReasoner:
         risk: RiskAssessment,
     ) -> ReasoningResult:
         evidence_ids = [item.evidence_id for item in vision.detections]
+        if vision.fire_classification and vision.fire_classification.available:
+            evidence_ids.append(vision.fire_classification.evidence_id)
         knowledge_ids = [item.rule_id for item in knowledge]
+        official_count = sum(
+            item.authority_level in {"law", "department_rule"} for item in knowledge
+        )
         if evidence_ids:
             category_labels = {"fire": "疑似火焰", "smoke": "疑似烟雾"}
             level_labels = {"critical": "极高", "high": "高", "medium": "中", "low": "低", "unknown": "待核查"}
-            categories = "、".join(sorted({category_labels.get(item.category, item.category) for item in vision.detections}))
+            categories_set = {
+                category_labels.get(item.category, item.category)
+                for item in vision.detections
+            }
+            if vision.fire_classification and vision.fire_classification.available:
+                categories_set.add("整图火情确认")
+            categories = "、".join(sorted(categories_set))
             explanation = (
                 f"视觉工具提供了{categories}候选证据，风险模块依据证据置信度、区域占比和"
-                f"{len(knowledge_ids)}条知识依据形成{level_labels[risk.overall_level]}风险辅助判断。"
+                f"{len(knowledge_ids)}条知识依据（其中{official_count}条为权威公开依据）形成"
+                f"{level_labels[risk.overall_level]}风险辅助判断。"
             )
+            if vision.fusion:
+                explanation += f" 双模型融合结果：{vision.fusion.summary}"
             uncertainties = list(vision.limitations)
         else:
             explanation = "视觉工具未返回明确风险目标，当前信息不足以形成安全结论。"

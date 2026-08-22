@@ -42,6 +42,9 @@ def test_stage4_metrics_records_and_report_exports():
     assert metrics.json()["total_analyses"] >= 1
     assert records.json()[0]["task"] == "联系 [phone] 并检查合成案例"
     assert "VisionGuard AI 工业安全视觉风险辅助报告" in html.text
+    assert "中华人民共和国消防法" in html.text
+    assert "适用边界" in html.text
+    assert "https://wb.flk.npc.gov.cn/" in html.text
     assert json_report.headers["content-type"].startswith("application/json")
     assert len(cases.json()) == 3
     assert case_image.headers["x-visionguard-synthetic"] == "true"
@@ -50,3 +53,55 @@ def test_stage4_metrics_records_and_report_exports():
 def test_store_redacts_credentials_and_identifiers():
     store = AnalysisStore()
     assert store._redact("a@example.com sk-123456789 13800138000") == "[email] [api-key] [phone]"
+
+
+def test_follow_up_qa_reuses_existing_evidence_without_redetection():
+    async def run():
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            analysis = await client.post(
+                "/api/v1/analyze",
+                files={
+                    "image": (
+                        "synthetic-fire.png",
+                        render_demo_case("synthetic-fire"),
+                        "image/png",
+                    )
+                },
+                data={"task": "分析火灾风险"},
+            )
+            request_id = analysis.json()["request_id"]
+            answer = await client.post(
+                f"/api/v1/analyses/{request_id}/ask",
+                json={"question": "为什么判断为高风险？"},
+            )
+            return request_id, answer
+
+    request_id, answer = asyncio.run(run())
+    assert answer.status_code == 200
+    body = answer.json()
+    assert body["request_id"] == request_id
+    assert "判断依据" in body["answer"]
+    assert body["reasoning"]["evidence_ids"] == ["ev-fire-001"]
+    assert [step["tool"] for step in body["agent_trace"]] == [
+        "context.retrieve",
+        "reasoning.explain",
+    ]
+    assert "未重新执行视觉检测" in body["agent_trace"][0]["summary"]
+
+
+def test_follow_up_qa_rejects_expired_or_invalid_requests():
+    async def run():
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            missing = await client.post(
+                "/api/v1/analyses/not-found/ask", json={"question": "为什么？"}
+            )
+            invalid = await client.post(
+                "/api/v1/analyses/not-found/ask", json={"question": "?"}
+            )
+            return missing, invalid
+
+    missing, invalid = asyncio.run(run())
+    assert missing.status_code == 404
+    assert invalid.status_code == 422

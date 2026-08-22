@@ -1,46 +1,114 @@
 [
   {
-    "id": "VG-FIRE-001",
+    "id": "LAW-FIRE-044",
     "category": "fire",
-    "title": "疑似明火视觉证据核查",
-    "basis": "当视觉工具返回疑似明火目标时，应结合现场位置、可燃物、热源与人员状态进行人工复核，并优先执行企业既有报警和应急流程。",
+    "title": "确认火灾后的报警与人员疏散责任",
+    "basis": "现场确认火灾后，应立即报警；人员密集场所的现场工作人员应立即组织、引导在场人员疏散，单位应立即组织力量扑救并优先保障人员安全。",
     "recommended_actions": [
-      "立即通知现场安全人员核查疑似明火区域。",
-      "在确保人员安全的前提下隔离周边可燃物和点火源。",
-      "如现场确认火情，按企业预案报警、疏散并启动应急处置。"
+      "立即由现场安全人员复核视觉火情证据，确认是否发生火灾。",
+      "确认火灾后立即报警，并依照现场应急预案组织人员疏散。",
+      "在保障人员安全且符合企业预案的前提下开展初期处置。"
     ],
-    "source": "VisionGuard AI内部安全规则",
-    "source_title": "工业视觉风险辅助分析规则集",
-    "source_section": "疑似明火核查",
-    "source_version": "0.3-draft"
+    "keywords": ["火灾", "明火", "报警", "疏散", "人员", "应急"],
+    "source": "国家法律法规数据库",
+    "source_title": "中华人民共和国消防法",
+    "source_section": "第四十四条、第四十五条",
+    "source_version": "2021年修正",
+    "source_url": "https://wb.flk.npc.gov.cn/flfg/PDF/8434808135f8473a81b079c022b9fe76.pdf",
+    "authority_level": "law",
+    "applicability": "仅在现场确认发生火灾后适用；VisionGuard视觉输出属于辅助核查证据，不构成火灾认定或执法依据。"
   },
   {
-    "id": "VG-SMOKE-001",
+    "id": "LAW-SAFE-041-FIRE",
+    "category": "fire",
+    "title": "安全风险分级管控与隐患记录",
+    "basis": "生产经营单位应建立安全风险分级管控制度和事故隐患排查治理制度，采取技术、管理措施及时发现并消除事故隐患，并如实记录排查治理情况。",
+    "recommended_actions": [
+      "将视觉火情线索纳入企业既有隐患排查流程，由有权限人员复核。",
+      "记录图片时间、区域、模型版本、视觉证据和人工复核结论。",
+      "依据企业风险分级制度确定后续管控措施，不由模型单独作出处置决定。"
+    ],
+    "keywords": ["隐患", "风险分级", "记录", "排查", "治理", "复核"],
+    "source": "国家法律法规数据库",
+    "source_title": "中华人民共和国安全生产法",
+    "source_section": "第四十一条",
+    "source_version": "2021年修正",
+    "source_url": "https://wb.flk.npc.gov.cn/flfg/texthtml/c4bbdc56233646b98d22c0e7915230b3.html",
+    "authority_level": "law",
+    "applicability": "用于支持风险线索进入企业隐患排查、分级管控和记录流程；不表示单张图片足以判定事故隐患等级。"
+  },
+  {
+    "id": "LAW-SAFE-041-SMOKE",
     "category": "smoke",
-    "title": "疑似烟雾视觉证据核查",
-    "basis": "疑似烟雾可能与燃烧、蒸汽、粉尘或成像条件有关，单帧视觉结果不足以直接判定火灾。",
+    "title": "疑似烟雾线索的隐患排查与记录",
+    "basis": "生产经营单位应采取技术、管理措施及时发现并消除事故隐患，并如实记录排查治理情况；疑似烟雾视觉线索可作为现场排查输入。",
     "recommended_actions": [
-      "核查烟雾候选区域的设备工况、气味、温度和持续时间。",
-      "调取相邻时段或其他视角图像，排除蒸汽、粉尘和光照干扰。",
-      "如伴随温升、火焰或报警信号，升级现场处置等级。"
+      "核查候选区域的设备工况、温度、气味、持续时间和相邻时段画面。",
+      "排除蒸汽、粉尘、雾气和光照等视觉干扰，并记录复核结论。",
+      "如同时出现温升、火焰或现场报警信号，按企业风险分级制度升级核查。"
     ],
-    "source": "VisionGuard AI内部安全规则",
-    "source_title": "工业视觉风险辅助分析规则集",
-    "source_section": "疑似烟雾核查",
-    "source_version": "0.3-draft"
+    "keywords": ["烟雾", "蒸汽", "粉尘", "温升", "隐患", "排查"],
+    "source": "国家法律法规数据库",
+    "source_title": "中华人民共和国安全生产法",
+    "source_section": "第四十一条",
+    "source_version": "2021年修正",
+    "source_url": "https://wb.flk.npc.gov.cn/flfg/texthtml/c4bbdc56233646b98d22c0e7915230b3.html",
+    "authority_level": "law",
+    "applicability": "法律依据支持隐患排查治理职责；烟雾与火灾之间的关系仍须结合现场信息判断。"
   },
   {
-    "id": "VG-NONE-001",
+    "id": "MEM-ORDER10-MONITOR",
+    "category": "fire",
+    "title": "工贸安全监控报警设施的运行要求",
+    "basis": "《工贸企业重大事故隐患判定标准》规定，其所列直接关系生产安全的监控、报警、防护等设施设备装置应保证正常运行、使用。",
+    "recommended_actions": [
+      "将视觉分析作为既有监控报警体系的辅助信息源，不替代法定设施。",
+      "同步核查现场火灾报警、温度、可燃气体等既有设施状态。",
+      "发现设施失效或视觉证据冲突时，立即转人工按适用行业规定判定。"
+    ],
+    "keywords": ["监控", "报警", "设施", "工贸", "运行", "联锁"],
+    "source": "中华人民共和国应急管理部",
+    "source_title": "工贸企业重大事故隐患判定标准（应急管理部令第10号）",
+    "source_section": "第二条、第十四条",
+    "source_version": "2023年5月15日起施行",
+    "source_url": "https://www.mem.gov.cn/gk/zfxxgkpt/fdzdgknr/gz11/202305/t20230523_451578.shtml",
+    "authority_level": "department_rule",
+    "applicability": "仅适用于该标准覆盖的工贸企业及对应情形；消防、危险化学品等另有规定的，从其规定。"
+  },
+  {
+    "id": "VG-SMOKE-BOUNDARY",
+    "category": "smoke",
+    "title": "单帧疑似烟雾的视觉判断边界",
+    "basis": "疑似烟雾可能与燃烧、蒸汽、粉尘、雾气或成像条件有关，单帧视觉结果不足以直接判定火灾。",
+    "recommended_actions": [
+      "调取相邻时段和其他视角画面，判断候选区域是否持续变化。",
+      "结合现场传感器、设备工况和人工巡检形成复核结论。"
+    ],
+    "keywords": ["烟雾", "单帧", "误报", "蒸汽", "粉尘", "复核"],
+    "source": "VisionGuard AI方法边界",
+    "source_title": "工业视觉证据使用边界",
+    "source_section": "疑似烟雾",
+    "source_version": "0.6.2",
+    "source_url": null,
+    "authority_level": "internal_method",
+    "applicability": "属于系统方法边界说明，不是法律法规或国家标准。"
+  },
+  {
+    "id": "VG-NONE-BOUNDARY",
     "category": "no_detection",
     "title": "无明确视觉证据时的复核边界",
     "basis": "单张图片未检出风险目标不等于现场不存在风险，遮挡、画质、视角和模型能力均可能造成漏检。",
     "recommended_actions": [
-      "结合现场巡检、传感器和其他视角继续核查。",
+      "结合现场巡检、传感器、相邻时段和其他视角继续核查。",
       "记录图片质量、模型版本和分析时间，避免将未检出表述为安全结论。"
     ],
-    "source": "VisionGuard AI内部安全规则",
-    "source_title": "工业视觉风险辅助分析规则集",
-    "source_section": "未检出与人工复核边界",
-    "source_version": "0.3-draft"
+    "keywords": ["未检出", "安全", "漏检", "遮挡", "画质", "复核"],
+    "source": "VisionGuard AI方法边界",
+    "source_title": "工业视觉证据使用边界",
+    "source_section": "未检出",
+    "source_version": "0.6.2",
+    "source_url": null,
+    "authority_level": "internal_method",
+    "applicability": "属于系统方法边界说明，不是法律法规或国家标准。"
   }
 ]

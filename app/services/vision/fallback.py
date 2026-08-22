@@ -38,3 +38,10 @@ class FallbackVisionDetector:
         )
         result.limitations.insert(0, f"已启用Demo回退：{reason}")
         return result
+
+    async def start(self) -> None:
+        if self.primary is None:
+            return
+        start = getattr(self.primary, "start", None)
+        if start is not None:
+            await start()

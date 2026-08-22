@@ -48,6 +48,42 @@ def test_agent_runs_complete_tool_chain():
     assert result.report.disclaimer
 
 
+def test_knowledge_retrieval_exposes_authority_and_applicability():
+    service = SafetyKnowledgeService()
+    results = asyncio.run(
+        service.retrieve(["fire"], "分析火灾风险并生成报警疏散建议")
+    )
+    assert results[0].rule_id == "LAW-FIRE-044"
+    assert results[0].authority_level == "law"
+    assert results[0].source_url.startswith("https://")
+    assert "现场确认" in results[0].applicability
+    assert len(results) == 3
+
+
+def test_no_detection_boundary_is_not_mislabeled_as_law():
+    results = asyncio.run(
+        SafetyKnowledgeService().retrieve([], "没有检出是否代表安全")
+    )
+    assert results[0].rule_id == "VG-NONE-BOUNDARY"
+    assert results[0].authority_level == "internal_method"
+    assert results[0].source_url is None
+
+
+def test_hybrid_rag_is_explainable_and_does_not_cross_risk_categories():
+    results = asyncio.run(
+        SafetyKnowledgeService().retrieve(
+            ["smoke"], "白色羽流可能是蒸汽或粉尘，如何复核误报"
+        )
+    )
+    assert results
+    assert {item.matched_category for item in results} == {"smoke"}
+    assert all(
+        item.retrieval_method == "category-constrained-tfidf-rag-v1"
+        for item in results
+    )
+    assert {"蒸汽", "粉尘"}.intersection(results[0].matched_terms)
+
+
 def test_http_api_accepts_image_and_returns_agent_trace():
     async def request():
         transport = httpx.ASGITransport(app=app)

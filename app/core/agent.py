@@ -1,7 +1,7 @@
 from uuid import uuid4
 
 from app.core.tools import ToolDefinition, ToolRegistry
-from app.schemas import AgentTraceStep, AnalysisResponse
+from app.schemas import AgentTraceStep, AnalysisResponse, FollowUpResponse
 from app.services.knowledge import SafetyKnowledgeService
 from app.services.report import SafetyReportService
 from app.services.reasoning.base import Reasoner
@@ -63,14 +63,19 @@ class VisionGuardAgent:
             ),
         ))
 
-        categories = sorted({item.category for item in vision.detections})
+        categories = {item.category for item in vision.detections}
+        if vision.fire_classification and vision.fire_classification.available and vision.fire_classification.prediction:
+            categories.add("fire")
         knowledge = await self.tools.invoke(
-            "knowledge.retrieve", categories=categories, task=normalized_task
+            "knowledge.retrieve", categories=sorted(categories), task=normalized_task
         )
         trace.append(AgentTraceStep(
             tool="knowledge.retrieve",
             status="completed",
-            summary=f"检索到 {len(knowledge)} 条安全知识依据",
+            summary=(
+                f"通过 {self.knowledge.retrieval_method} 检索到 "
+                f"{len(knowledge)} 条安全知识依据"
+            ),
         ))
 
         risk = await self.tools.invoke("risk.analyze", vision=vision, knowledge=knowledge)
@@ -118,3 +123,69 @@ class VisionGuardAgent:
             report=report,
             agent_trace=trace,
         )
+
+    async def answer_follow_up(
+        self, analysis: AnalysisResponse, question: str
+    ) -> FollowUpResponse:
+        normalized = question.strip()
+        reasoning = await self.tools.invoke(
+            "reasoning.explain",
+            task=normalized,
+            vision=analysis.vision,
+            knowledge=analysis.knowledge,
+            risk=analysis.risk,
+        )
+        answer = (
+            reasoning.explanation
+            if reasoning.used_llm
+            else self._deterministic_follow_up(analysis, normalized)
+        )
+        return FollowUpResponse(
+            request_id=analysis.request_id,
+            question=normalized,
+            answer=answer,
+            reasoning=reasoning,
+            agent_trace=[
+                AgentTraceStep(
+                    tool="context.retrieve",
+                    status="completed",
+                    summary=(
+                        f"复用 {len(reasoning.evidence_ids)} 条视觉证据和 "
+                        f"{len(reasoning.knowledge_ids)} 条知识依据，未重新执行视觉检测"
+                    ),
+                ),
+                AgentTraceStep(
+                    tool="reasoning.explain",
+                    status="completed",
+                    summary=f"{reasoning.provider}/{reasoning.model} 生成证据约束追问回答",
+                ),
+            ],
+        )
+
+    @staticmethod
+    def _deterministic_follow_up(
+        analysis: AnalysisResponse, question: str
+    ) -> str:
+        if any(word in question for word in ("确定", "一定", "安全吗", "误报", "可靠")):
+            return (
+                "不能仅凭本次单图分析作出确定性安全结论。"
+                f"当前系统形成的最高风险等级为{analysis.risk.overall_level}，"
+                "仍受图像视角、遮挡、模型适用范围和现场信息缺失影响，必须由现场安全人员复核。"
+            )
+        if any(word in question for word in ("怎么", "建议", "处理", "处置", "行动")):
+            actions: list[str] = []
+            for item in analysis.risk.items:
+                for action in item.recommended_actions:
+                    if action not in actions:
+                        actions.append(action)
+            if not actions:
+                actions = ["结合现场巡检、传感器和其他视角继续核查。"]
+            return "基于当前证据，建议按以下顺序核查：" + "；".join(actions[:4])
+        evidence = "；".join(item.reason for item in analysis.risk.items)
+        citations = "、".join(
+            f"[{item.citation_id}]{item.source_title}{item.source_section}"
+            for item in analysis.knowledge
+        )
+        if not evidence:
+            evidence = "视觉工具未返回明确风险目标，未检出不等同于安全。"
+        return f"判断依据包括：{evidence} 知识依据为：{citations or '系统方法边界'}。"

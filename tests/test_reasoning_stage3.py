@@ -14,7 +14,11 @@ from app.schemas import (
 )
 from app.services.reasoning.deterministic import DeterministicReasoner
 from app.services.reasoning.fallback import FallbackReasoner
-from app.services.reasoning.llm import CompatibleLLMReasoner, ReasoningValidationError
+from app.services.reasoning.llm import (
+    CompatibleLLMReasoner,
+    ReasoningValidationError,
+    _decode_json_object,
+)
 
 
 def context():
@@ -113,6 +117,48 @@ def test_compatible_llm_rejects_fabricated_evidence_reference():
 
     try:
         asyncio.run(run())
+        raise AssertionError("Expected ReasoningValidationError")
+    except ReasoningValidationError:
+        pass
+
+
+def test_compatible_llm_rejects_unstructured_or_ungrounded_output():
+    async def handler(request: httpx.Request):
+        body = {
+            "explanation": "存在风险。",
+            "evidence_ids": [],
+            "knowledge_ids": [],
+            "uncertainties": [],
+            "follow_up_questions": [],
+            "safety_boundary": "必须人工复核。",
+        }
+        return httpx.Response(
+            200,
+            json={"choices": [{"message": {"content": json.dumps(body)}}]},
+        )
+
+    async def run():
+        client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+        reasoner = CompatibleLLMReasoner(
+            base_url="https://llm.test/v1", api_key="test", model="test-model", client=client
+        )
+        vision, knowledge, risk = context()
+        try:
+            await reasoner.explain("分析风险", vision, knowledge, risk)
+        finally:
+            await client.aclose()
+
+    try:
+        asyncio.run(run())
+        raise AssertionError("Expected ReasoningValidationError")
+    except ReasoningValidationError:
+        pass
+
+
+def test_json_decoder_accepts_fenced_object_but_rejects_non_json_text():
+    assert _decode_json_object('```json\n{"ok": true}\n```') == {"ok": True}
+    try:
+        _decode_json_object("没有结构化结果")
         raise AssertionError("Expected ReasoningValidationError")
     except ReasoningValidationError:
         pass

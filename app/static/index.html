@@ -39,7 +39,7 @@
         <textarea id="task" name="task" rows="3">识别图片中的工业安全风险，并说明视觉证据、风险依据和建议核查动作。</textarea>
         <button type="submit">启动 VisionGuard Agent</button>
       </form>
-      <p class="notice">当前默认视觉后端为演示级颜色启发式，仅用于验证闭环，不可用于真实生产决策。</p>
+      <p id="runtime-notice" class="notice">正在读取比赛运行配置……</p>
     </section>
 
     <section class="panel result-panel" aria-live="polite">
@@ -63,6 +63,12 @@
         <div id="knowledge" class="cards"></div>
         <h3>建议动作</h3>
         <ul id="actions"></ul>
+        <h3>基于本次证据继续提问</h3>
+        <form id="qa-form" class="qa-form">
+          <input id="qa-question" type="text" minlength="2" maxlength="500" placeholder="例如：为什么判断为高风险？下一步应如何核查？" required>
+          <button type="submit">向 VisionGuard Agent 追问</button>
+        </form>
+        <div id="qa-answer" class="qa-answer" hidden></div>
         <div class="report-actions">
           <a id="html-report" class="action-link" target="_blank" rel="noopener">打开可打印报告</a>
           <a id="json-report" class="action-link">下载结构化JSON</a>

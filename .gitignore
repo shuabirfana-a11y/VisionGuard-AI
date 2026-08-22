@@ -7,3 +7,17 @@ __pycache__/
 .tmp/
 data/uploads/
 models/*.pt
+models/
+.venv-firebench/
+.venv-firebench-dml/
+.pytest-tmp-*/
+evaluation/data/
+evaluation/cache/
+evaluation/*_results*.json
+!evaluation/VERIFIED_RESULTS.json
+!evaluation/full_chain_results_local_llm_v4.json
+evaluation/component_classifier_*
+evaluation/*_threshold_sweep.json
+training/data/
+training/cache/
+runtime/

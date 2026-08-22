@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -25,11 +26,43 @@ agent = VisionGuardAgent(
     reasoner=build_reasoner(settings),
 )
 analysis_store = AnalysisStore(max_records=100)
+vision_runtime_status = {
+    "state": (
+        "disabled"
+        if not settings.fire_classifier_enabled
+        else "lazy" if settings.fire_classifier_mode == "persistent" else "cli"
+    ),
+    "error": None,
+}
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    start = getattr(agent.detector, "start", None)
+    if (
+        settings.fire_classifier_eager_start
+        and settings.fire_classifier_mode == "persistent"
+        and start is not None
+    ):
+        vision_runtime_status["state"] = "warming"
+        try:
+            await start()
+        except Exception as exc:
+            vision_runtime_status["state"] = "error"
+            vision_runtime_status["error"] = f"{type(exc).__name__}: {exc}"
+        else:
+            vision_runtime_status["state"] = "ready"
+    yield
+    close = getattr(agent.detector, "close", None)
+    if close is not None:
+        await close()
+
 
 app = FastAPI(
     title="VisionGuard AI",
     description="面向工业安全场景的多模态视觉风险智能体 MVP",
-    version="0.4.0",
+    version="0.12.0",
+    lifespan=lifespan,
 )
 app.include_router(router)
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
