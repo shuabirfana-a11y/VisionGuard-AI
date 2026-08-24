@@ -185,6 +185,7 @@ class HealthResponse(BaseModel):
     status: str
     project: str
     version: str
+    deployment_profile: str
     vision_backend: str
     capabilities: dict[str, Any]
 

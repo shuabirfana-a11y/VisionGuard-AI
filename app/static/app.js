@@ -61,7 +61,9 @@ async function loadRuntimeProfile() {
     const classifier = capabilities.fire_classifier_runtime?.state === "ready"
       ? "三路火情确认已就绪"
       : "火情确认分支未就绪";
-    notice.textContent = `比赛运行配置 ${health.version}：${vision} · ${classifier} · ${reasoning} · 可解释混合RAG。所有结论仍须现场人员复核。`;
+    const profileLabels = {"public-demo": "公开评委演示", "competition": "比赛完整配置", "local": "本地运行"};
+    const profile = profileLabels[health.deployment_profile] || health.deployment_profile;
+    notice.textContent = `${profile} ${health.version}：${vision} · ${classifier} · ${reasoning} · 可解释混合RAG。所有结论仍须现场人员复核。`;
     notice.classList.toggle("runtime-ready", health.vision_backend === "yolo");
   } catch (error) {
     notice.textContent = `无法读取运行配置：${error.message}`;

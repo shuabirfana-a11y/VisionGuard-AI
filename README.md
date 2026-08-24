@@ -77,6 +77,12 @@ uvicorn app.main:app --reload
 
 浏览器访问 `http://127.0.0.1:8000`。
 
+## 公开评委演示部署
+
+仓库根目录提供 `Dockerfile` 与 `render.yaml`，可在Render通过Blueprint创建公开评委演示站点。该云端档位明确标记为 `public-demo`，默认使用Demo视觉回退，只用于体验图片上传、Agent编排、知识检索、风险解释和报告导出闭环，不作为YOLO、三路分类模型或本地大模型的效果证明。
+
+完整模型在比赛机通过 `scripts/start_competition.ps1` 启动；公开演示部署步骤、资源边界和安全配置见 [公开部署说明](docs/PUBLIC_DEPLOYMENT.md)。Render免费实例可能休眠或重启，正式提交前应预热并复查访问状态。
+
 ## 接入 YOLO
 
 安装可选依赖并配置模型路径：

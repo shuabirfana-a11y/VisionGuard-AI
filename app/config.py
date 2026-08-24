@@ -4,6 +4,7 @@ import os
 
 @dataclass(frozen=True)
 class Settings:
+    deployment_profile: str = os.getenv("DEPLOYMENT_PROFILE", "local").strip().lower()
     vision_backend: str = os.getenv("VISION_BACKEND", "demo").strip().lower()
     yolo_model_path: str = os.getenv("YOLO_MODEL_PATH", "").strip()
     yolo_model_version: str = os.getenv("YOLO_MODEL_VERSION", "").strip()
@@ -39,6 +40,10 @@ class Settings:
         "1", "true", "yes", "on"
     }
     max_upload_mb: int = int(os.getenv("MAX_UPLOAD_MB", "10"))
+    max_concurrent_analyses: int = max(1, int(os.getenv("MAX_CONCURRENT_ANALYSES", "4")))
+    analysis_queue_timeout_seconds: float = max(
+        0.1, float(os.getenv("ANALYSIS_QUEUE_TIMEOUT_SECONDS", "5"))
+    )
 
 
 settings = Settings()

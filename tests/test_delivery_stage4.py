@@ -1,8 +1,12 @@
 import asyncio
+from io import BytesIO
 from pathlib import Path
 
 import httpx
+import pytest
+from fastapi import HTTPException, UploadFile
 
+from app.api.routes import _read_limited_upload
 from app.main import app
 from app.services.demo_cases import CASES, render_demo_case
 from app.services.store import AnalysisStore
@@ -40,6 +44,32 @@ def test_readiness_endpoint_reports_explicit_degradation_without_hiding_core_che
     assert checks["agent_tools"]["status"] == "ready"
     assert checks["demo_cases"]["status"] == "ready"
     assert checks["report_exports"]["status"] == "ready"
+
+
+def test_public_runtime_metadata_and_security_headers_are_exposed():
+    async def run():
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            return await client.get("/api/v1/health")
+
+    response = asyncio.run(run())
+    assert response.status_code == 200
+    assert response.json()["deployment_profile"] in {"local", "public-demo", "competition"}
+    assert response.headers["x-content-type-options"] == "nosniff"
+    assert response.headers["x-frame-options"] == "DENY"
+    assert response.headers["referrer-policy"] == "no-referrer"
+    assert response.headers["cache-control"] == "no-store"
+    assert "default-src 'self'" in response.headers["content-security-policy"]
+
+
+def test_upload_reader_stops_when_payload_exceeds_limit():
+    async def run():
+        upload = UploadFile(filename="too-large.png", file=BytesIO(b"x" * 17))
+        return await _read_limited_upload(upload, max_bytes=16)
+
+    with pytest.raises(HTTPException) as exc_info:
+        asyncio.run(run())
+    assert exc_info.value.status_code == 413
 
 
 def test_standard_demo_cases_exercise_fire_smoke_and_review_paths():

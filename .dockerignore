@@ -1,0 +1,13 @@
+.git
+.github
+.venv*
+models
+evaluation/data
+submission
+tmp
+__pycache__
+*.pyc
+*.pyo
+.pytest_cache
+.env
+*.log

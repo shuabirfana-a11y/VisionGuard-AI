@@ -1,4 +1,5 @@
 import hashlib
+import asyncio
 from pathlib import Path
 from time import perf_counter
 
@@ -23,6 +24,24 @@ from app.services.vision.demo import InvalidImageError
 
 
 router = APIRouter(prefix="/api/v1")
+analysis_slots = asyncio.Semaphore(settings.max_concurrent_analyses)
+
+
+async def _read_limited_upload(image: UploadFile, max_bytes: int) -> bytes:
+    chunks: list[bytes] = []
+    total = 0
+    while True:
+        chunk = await image.read(1024 * 1024)
+        if not chunk:
+            break
+        total += len(chunk)
+        if total > max_bytes:
+            raise HTTPException(
+                status_code=413,
+                detail=f"图片不能超过 {settings.max_upload_mb} MB",
+            )
+        chunks.append(chunk)
+    return b"".join(chunks)
 
 
 @router.get("/health", response_model=HealthResponse)
@@ -33,6 +52,7 @@ async def health() -> HealthResponse:
         status="ok",
         project="VisionGuard AI",
         version="0.12.0",
+        deployment_profile=settings.deployment_profile,
         vision_backend=settings.vision_backend,
         capabilities={
             "image_upload": "available",
@@ -170,18 +190,26 @@ async def analyze(
     allowed = {"image/jpeg", "image/png", "image/webp"}
     if image.content_type not in allowed:
         raise HTTPException(status_code=415, detail="仅支持 JPEG、PNG 或 WebP 图片")
-    payload = await image.read()
+    payload = await _read_limited_upload(image, settings.max_upload_mb * 1024 * 1024)
     if not payload:
         raise HTTPException(status_code=400, detail="上传图片为空")
-    if len(payload) > settings.max_upload_mb * 1024 * 1024:
-        raise HTTPException(status_code=413, detail=f"图片不能超过 {settings.max_upload_mb} MB")
+    acquired = False
     try:
+        await asyncio.wait_for(
+            analysis_slots.acquire(), timeout=settings.analysis_queue_timeout_seconds
+        )
+        acquired = True
         started = perf_counter()
         result = await agent.analyze(payload, image.filename or "upload", task)
         analysis_store.record(result, (perf_counter() - started) * 1000)
         return result
+    except TimeoutError as exc:
+        raise HTTPException(status_code=503, detail="当前分析任务较多，请稍后重试") from exc
     except InvalidImageError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    finally:
+        if acquired:
+            analysis_slots.release()
 
 
 @router.get("/demo-cases", response_model=list[DemoCaseInfo])
