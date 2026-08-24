@@ -4,6 +4,8 @@
 
 当前版本：本地大模型证据推理、GPU预热、双模型并行、可解释混合RAG、独立跨来源验证、真实火焰/烟雾定位版 `0.12.0`。
 
+参赛定位：**2026年iCAN大学生创新创业大赛AI应用创新挑战赛——软件赛道**。项目以可在线演示或可运行的工业安全视觉风险智能体为作品形态，围绕创新性、技术实现、实用价值、用户体验和展示效果组织参赛证据；不再按浙江省国际大学生创新大赛人工智能命题项目表述。
+
 本仓库是独立比赛项目，不是 FactorySafe 的分支、子模块或后续版本，也不依赖 FactorySafe 代码。
 
 ## MVP 闭环
@@ -62,7 +64,7 @@ powershell -ExecutionPolicy Bypass -File scripts\start_competition.ps1
 
 脚本会检查并按固定发布地址下载YOLO权重、校验SHA-256，启用真实火焰/烟雾定位；本地队友分类模型及其隔离环境存在时，同时启用双模型融合；本地LLM运行时与权重存在时，启用离线证据约束推理。首次安装本地LLM可运行 `scripts\setup_local_llm.ps1`。来源、许可、公开指标与本机验证边界见 [模型卡](docs/YOLO_MODEL_CARD.md) 与 [本地大模型说明](docs/LOCAL_LLM.md)。
 
-经过验证的指标、硬件、阈值与可申报边界见 [比赛就绪报告](docs/COMPETITION_READINESS.md) 和 [机器可读结果](evaluation/VERIFIED_RESULTS.json)。
+经过验证的指标、硬件、阈值与可申报边界见 [iCAN参赛定位](docs/ICAN_2026_POSITIONING.md)、[比赛就绪报告](docs/COMPETITION_READINESS.md) 和 [机器可读结果](evaluation/VERIFIED_RESULTS.json)。
 
 ## 本地运行
 
