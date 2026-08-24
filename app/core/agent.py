@@ -2,7 +2,7 @@ from time import perf_counter
 from uuid import uuid4
 
 from app.core.tools import ToolDefinition, ToolRegistry
-from app.schemas import AgentTraceStep, AnalysisResponse, FollowUpResponse
+from app.schemas import AgentPlan, AgentTraceStep, AnalysisResponse, FollowUpResponse
 from app.services.knowledge import SafetyKnowledgeService
 from app.services.report import SafetyReportService
 from app.services.reasoning.base import Reasoner
@@ -51,6 +51,16 @@ class VisionGuardAgent:
     async def analyze(self, image_bytes: bytes, file_name: str, task: str) -> AnalysisResponse:
         normalized_task = task.strip() or "识别图片中的工业安全风险并给出核查建议"
         trace: list[AgentTraceStep] = []
+
+        step_started = perf_counter()
+        plan = self._plan_task(normalized_task)
+        trace.append(AgentTraceStep(
+            tool="agent.plan",
+            status="completed",
+            summary=f"识别任务意图：{plan.intent}，规划 {len(plan.tool_sequence)} 个专业工具",
+            duration_ms=round((perf_counter() - step_started) * 1000, 2),
+            references=plan.tool_sequence,
+        ))
 
         step_started = perf_counter()
         vision = await self.tools.invoke(
@@ -143,12 +153,57 @@ class VisionGuardAgent:
         return AnalysisResponse(
             request_id=str(uuid4()),
             task=normalized_task,
+            agent_plan=plan,
             vision=vision,
             knowledge=knowledge,
             risk=risk,
             reasoning=reasoning,
             report=report,
             agent_trace=trace,
+        )
+
+    @staticmethod
+    def _plan_task(task: str) -> AgentPlan:
+        intent_rules = [
+            ("风险处置与报告", ("报告", "处置", "建议", "行动", "应急")),
+            ("证据解释与依据核查", ("为什么", "原因", "解释", "依据", "法规")),
+            ("风险识别与等级研判", ("风险", "危险", "等级", "隐患")),
+            ("视觉目标定位", ("检测", "识别", "定位", "标框", "图片")),
+        ]
+        matched_terms: list[str] = []
+        intent = "工业安全综合分析"
+        for candidate, terms in intent_rules:
+            hits = [term for term in terms if term in task]
+            if hits:
+                intent = candidate
+                matched_terms.extend(hits)
+                break
+        requested_outputs = ["结构化视觉证据", "风险等级"]
+        if any(term in task for term in ("为什么", "原因", "解释", "依据", "风险", "隐患")):
+            requested_outputs.extend(["证据约束解释", "安全知识依据"])
+        if any(term in task for term in ("建议", "行动", "处理", "处置", "应急", "核查")):
+            requested_outputs.append("人工核查建议")
+        if "报告" in task:
+            requested_outputs.append("结构化安全报告")
+        requested_outputs = list(dict.fromkeys(requested_outputs))
+        tools = [
+            "vision.detect",
+            "knowledge.retrieve",
+            "risk.analyze",
+            "reasoning.explain",
+            "report.generate",
+        ]
+        return AgentPlan(
+            intent=intent,
+            matched_terms=list(dict.fromkeys(matched_terms)),
+            requested_outputs=requested_outputs,
+            tool_sequence=tools,
+            rationale="先获取可定位视觉证据，再检索适用知识，随后完成风险研判、受约束解释和报告组织。",
+            safety_constraints=[
+                "只允许引用本次视觉证据编号和检索到的知识编号",
+                "未检出不等于安全，模型分歧必须显式提示",
+                "结论仅用于辅助分析，必须由现场安全人员复核",
+            ],
         )
 
     async def answer_follow_up(

@@ -148,9 +148,19 @@ class SafetyReport(BaseModel):
     disclaimer: str
 
 
+class AgentPlan(BaseModel):
+    intent: str
+    matched_terms: list[str]
+    requested_outputs: list[str]
+    tool_sequence: list[str]
+    rationale: str
+    safety_constraints: list[str]
+
+
 class AnalysisResponse(BaseModel):
     request_id: str
     task: str
+    agent_plan: AgentPlan
     vision: VisionResult
     knowledge: list[KnowledgeEvidence]
     risk: RiskAssessment

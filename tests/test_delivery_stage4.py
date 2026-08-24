@@ -66,6 +66,8 @@ def test_stage4_metrics_records_and_report_exports():
     assert "步骤耗时" in html.text
     assert "结论须由现场安全人员复核" in html.text
     assert "可引用视觉证据" in html.text
+    assert "Agent任务规划" in html.text
+    assert "Agent专业工具" in html.text
     assert json_report.headers["content-type"].startswith("application/json")
     assert len(cases.json()) == 3
     assert case_image.headers["x-visionguard-synthetic"] == "false"

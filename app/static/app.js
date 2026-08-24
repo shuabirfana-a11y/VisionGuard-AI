@@ -92,11 +92,19 @@ function renderResult(data) {
     + (data.vision.fire_classification?.available ? 1 : 0);
   const fallbackCount = Number(Boolean(data.vision.inference.fallback_used))
     + Number(Boolean(data.reasoning.fallback_used));
+  const toolStepCount = data.agent_trace.filter(item => item.tool !== "agent.plan").length;
   document.querySelector("#audit-summary").innerHTML = `
     <div><span>视觉证据</span><b>${visualEvidenceCount}</b><small>条可引用证据</small></div>
     <div><span>知识依据</span><b>${data.knowledge.length}</b><small>条来源记录</small></div>
-    <div><span>Agent 工具</span><b>${data.agent_trace.length}</b><small>步已完成</small></div>
+    <div><span>Agent 工具</span><b>${toolStepCount}</b><small>个专业工具</small></div>
     <div><span>回退次数</span><b>${fallbackCount}</b><small>${fallbackCount ? "已明确标注" : "完整专业链路"}</small></div>`;
+  const plan = data.agent_plan;
+  document.querySelector("#agent-plan").innerHTML = `
+    <div class="plan-heading"><span>Agent 任务规划</span><b>${escapeHtml(plan.intent)}</b></div>
+    <div class="plan-route">${plan.tool_sequence.map((tool, index) => `<code>${index + 1}. ${escapeHtml(tool)}</code>`).join("<i>→</i>")}</div>
+    <p>${escapeHtml(plan.rationale)}</p>
+    <small>目标输出：${escapeHtml(plan.requested_outputs.join("、"))}</small>
+    <small>安全约束：${escapeHtml(plan.safety_constraints.join("；"))}</small>`;
   latestVision = data.vision;
   drawEvidence();
   const inference = data.vision.inference;

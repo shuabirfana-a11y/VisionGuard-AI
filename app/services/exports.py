@@ -77,6 +77,7 @@ h1{{color:#17365d;border-bottom:3px solid #2e74b5;padding-bottom:12px;margin-bot
 .meta .wide{{grid-column:1/-1}}.level{{display:inline-block;font-size:24px;font-weight:700;color:#9b3518;border-left:5px solid #d96032;padding:5px 12px;background:#fff3ed}}
 .audit{{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:14px}}.audit div{{border:1px solid #cbdcea;border-radius:7px;padding:9px}}.audit b,.audit small{{display:block}}.audit small{{color:#64748b}}
 .boundary{{border-left:4px solid #d79b29;background:#fff8e8;padding:12px}}.trace{{padding:0;list-style:none}}.trace li{{display:grid;grid-template-columns:28px 1fr;gap:10px;margin:12px 0}}.trace p{{margin:0}}.trace small{{color:#64748b}}.step{{display:grid;width:25px;height:25px;place-items:center;border-radius:50%;background:#2e74b5;color:white;font-weight:700}}
+.plan{{border:1px solid #bcd4e7;border-radius:8px;padding:13px;background:#f6fbff}}.plan code{{display:inline-block;margin:3px;padding:3px 6px;border-radius:4px;background:#e7f1f8;color:#17365d}}.plan small{{display:block;margin-top:6px;color:#64748b}}
 .disclaimer{{margin-top:30px;border:1px solid #e8c56d;background:#fff9e9;padding:12px;color:#6d5316}}footer{{margin-top:18px;color:#64748b;font-size:12px}}
 button{{border:0;border-radius:6px;padding:9px 14px;background:#2e74b5;color:white;cursor:pointer}}
 @media(max-width:650px){{.meta,.audit{{grid-template-columns:1fr}}.meta .wide{{grid-column:auto}}}}
@@ -89,8 +90,11 @@ button{{border:0;border-radius:6px;padding:9px 14px;background:#2e74b5;color:whi
 <div><b>视觉模型：</b>{escape(result.vision.inference.model_name)} / {escape(result.vision.inference.model_version)}</div>
 <div><b>模型阈值：</b>置信度 {result.vision.inference.confidence_threshold:.2f} / IoU {iou}</div><div><b>视觉设备：</b>{escape(result.vision.inference.device)} / {result.vision.inference.inference_ms:.2f} ms</div>
 <div><b>推理器：</b>{escape(result.reasoning.provider)} / {escape(result.reasoning.model)}</div><div><b>回退状态：</b>视觉 {visual_fallback} / 推理 {reasoning_fallback}</div></div>
+<h2>Agent任务规划</h2><div class="plan"><b>{escape(result.agent_plan.intent)}</b><p>{escape(result.agent_plan.rationale)}</p>
+<div>{''.join(f'<code>{index}. {escape(tool)}</code>' for index, tool in enumerate(result.agent_plan.tool_sequence, start=1))}</div>
+<small>目标输出：{escape('、'.join(result.agent_plan.requested_outputs))}</small><small>安全约束：{escape('；'.join(result.agent_plan.safety_constraints))}</small></div>
 <h2>风险结论</h2><div class="level">{escape(risk_label)}</div><p>{escape(result.risk.summary)}</p>
-<div class="audit"><div><small>可引用视觉证据</small><b>{visual_evidence_count} 条</b></div><div><small>知识依据</small><b>{len(result.knowledge)} 条</b></div><div><small>Agent工具步骤</small><b>{len(result.agent_trace)} 步</b></div><div><small>人工复核</small><b>必须</b></div></div>
+<div class="audit"><div><small>可引用视觉证据</small><b>{visual_evidence_count} 条</b></div><div><small>知识依据</small><b>{len(result.knowledge)} 条</b></div><div><small>Agent专业工具</small><b>{len(result.agent_plan.tool_sequence)} 个</b></div><div><small>人工复核</small><b>必须</b></div></div>
 <h2>视觉证据</h2><ul>{evidence}</ul>
 <h2>可信推理</h2><p>{escape(result.reasoning.explanation)}</p><div class="boundary">{escape(result.reasoning.safety_boundary)}</div>
 <h2>知识依据</h2><ul>{citations}</ul>

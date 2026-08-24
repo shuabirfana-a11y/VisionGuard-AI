@@ -39,6 +39,7 @@ def test_agent_runs_complete_tool_chain():
     result = asyncio.run(agent.analyze(image_bytes((230, 90, 25)), "scene.png", "分析火灾风险"))
     assert result.risk.overall_level in {"high", "critical"}
     assert [step.tool for step in result.agent_trace] == [
+        "agent.plan",
         "vision.detect",
         "knowledge.retrieve",
         "risk.analyze",
@@ -46,6 +47,19 @@ def test_agent_runs_complete_tool_chain():
         "report.generate",
     ]
     assert result.report.disclaimer
+
+
+def test_agent_planner_distinguishes_visual_explanation_and_action_intents():
+    visual = VisionGuardAgent._plan_task("请检测图片并定位烟雾")
+    explanation = VisionGuardAgent._plan_task("为什么判断存在风险，请给出法规依据")
+    action = VisionGuardAgent._plan_task("生成处置建议和应急报告")
+    assert visual.intent == "视觉目标定位"
+    assert explanation.intent == "证据解释与依据核查"
+    assert "安全知识依据" in explanation.requested_outputs
+    assert action.intent == "风险处置与报告"
+    assert "结构化安全报告" in action.requested_outputs
+    assert visual.tool_sequence == action.tool_sequence
+    assert len(action.safety_constraints) == 3
 
 
 def test_knowledge_retrieval_exposes_authority_and_applicability():
@@ -101,7 +115,9 @@ def test_http_api_accepts_image_and_returns_agent_trace():
     assert body["vision"]["inference"]["confidence_threshold"] == 0.35
     assert body["reasoning"]["used_llm"] is False
     assert body["reasoning"]["evidence_ids"] == ["ev-fire-001"]
-    assert len(body["agent_trace"]) == 5
+    assert len(body["agent_trace"]) == 6
     assert all(step["duration_ms"] >= 0 for step in body["agent_trace"])
-    assert body["agent_trace"][0]["references"] == ["ev-fire-001"]
-    assert body["agent_trace"][1]["references"]
+    assert body["agent_plan"]["intent"] == "风险识别与等级研判"
+    assert body["agent_plan"]["tool_sequence"][0] == "vision.detect"
+    assert body["agent_trace"][1]["references"] == ["ev-fire-001"]
+    assert body["agent_trace"][2]["references"]
