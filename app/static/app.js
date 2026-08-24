@@ -244,7 +244,7 @@ async function runDemoCase(caseId, name) {
   transfer.items.add(file);
   imageInput.files = transfer.files;
   imageInput.dispatchEvent(new Event("change"));
-  document.querySelector("#task").value = `运行比赛合成案例“${name}”，输出视觉证据、可信推理和人工复核建议。`;
+  document.querySelector("#task").value = `运行一键验证案例“${name}”，输出视觉证据、可信推理和人工复核建议。`;
   form.requestSubmit();
 }
 

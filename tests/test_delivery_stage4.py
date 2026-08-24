@@ -60,6 +60,12 @@ def test_stage4_metrics_records_and_report_exports():
     assert "中华人民共和国消防法" in html.text
     assert "适用边界" in html.text
     assert "https://wb.flk.npc.gov.cn/" in html.text
+    assert "Agent审计轨迹" in html.text
+    assert "模型阈值" in html.text
+    assert "回退状态" in html.text
+    assert "步骤耗时" in html.text
+    assert "结论须由现场安全人员复核" in html.text
+    assert "可引用视觉证据" in html.text
     assert json_report.headers["content-type"].startswith("application/json")
     assert len(cases.json()) == 3
     assert case_image.headers["x-visionguard-synthetic"] == "false"
