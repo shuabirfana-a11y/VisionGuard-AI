@@ -4,7 +4,7 @@ services:
     runtime: docker
     plan: free
     healthCheckPath: /api/v1/health
-    autoDeployTrigger: commit
+    autoDeployTrigger: checksPass
     envVars:
       - key: DEPLOYMENT_PROFILE
         value: public-demo
