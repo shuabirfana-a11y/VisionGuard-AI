@@ -46,6 +46,20 @@ h3 { margin-top: 28px; color: #cbe4ff; }
 .metrics span, .metrics b { display: block; }
 .metrics span { color: var(--muted); font-size: 12px; }
 .metrics b { margin-top: 3px; color: var(--cyan); }
+.readiness-bar { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.readiness-bar button { width: auto; margin: 0; padding: 10px 14px; font-size: 13px; }
+.readiness-overall { color: var(--muted); font-size: 13px; }
+.readiness-overall.ready { color: var(--cyan); }
+.readiness-overall.degraded { color: var(--amber); }
+.readiness-overall.not_ready { color: #ff7d7d; }
+.readiness-results { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.readiness-item { display: grid; grid-template-columns: 22px 1fr; gap: 8px; min-width: 0; padding: 9px 10px; border: 1px solid var(--line); border-radius: 9px; background: #091725; }
+.readiness-item > span { font-weight: 900; }
+.readiness-item b, .readiness-item small { display: block; }
+.readiness-item small { margin-top: 2px; color: var(--muted); font-size: 11px; line-height: 1.4; }
+.readiness-item.ready > span { color: var(--cyan); }
+.readiness-item.degraded > span { color: var(--amber); }
+.readiness-item.error > span { color: #ff7d7d; }
 label { display: block; margin: 18px 0 8px; font-weight: 700; }
 .upload { border: 1px dashed #4778a8; border-radius: 14px; padding: 20px; cursor: pointer; background: rgba(72,168,255,.06); }
 .upload span, .upload small { display: block; }
@@ -143,4 +157,5 @@ pre { overflow: auto; padding: 14px; border-radius: 10px; background: #050b12; f
 @media (max-width: 650px) { .metrics { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 650px) { .audit-summary { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 650px) { .demo-buttons { grid-template-columns: 1fr; } .core-flow i { display: none; } }
+@media (max-width: 650px) { .readiness-results { grid-template-columns: 1fr; } .readiness-bar { align-items: flex-start; flex-direction: column; } }
 @media (max-width: 520px) { .model-meta dl { grid-template-columns: 1fr; } .report-actions { flex-direction: column; } }

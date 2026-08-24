@@ -1,5 +1,8 @@
+import hashlib
+from pathlib import Path
 from time import perf_counter
 
+import httpx
 from fastapi import APIRouter, File, Form, HTTPException, Response, UploadFile
 
 from app.config import settings
@@ -11,6 +14,8 @@ from app.schemas import (
     FollowUpResponse,
     HealthResponse,
     MetricsResponse,
+    ReadinessCheck,
+    ReadinessResponse,
 )
 from app.services.demo_cases import CASES, render_demo_case
 from app.services.exports import report_html, report_json
@@ -59,6 +64,100 @@ async def health() -> HealthResponse:
             "registered_tools": agent.tools.descriptions(),
         },
     )
+
+
+@router.get("/readiness", response_model=ReadinessResponse)
+async def readiness() -> ReadinessResponse:
+    from app.main import agent, vision_runtime_status
+
+    checks: list[ReadinessCheck] = []
+    model_path = Path(settings.yolo_model_path) if settings.yolo_model_path else None
+    if settings.vision_backend == "yolo" and model_path and model_path.is_file():
+        digest_ok = True
+        if settings.yolo_expected_sha256:
+            digest = hashlib.sha256(model_path.read_bytes()).hexdigest()
+            digest_ok = digest == settings.yolo_expected_sha256
+        checks.append(ReadinessCheck(
+            key="professional_vision",
+            label="专业视觉模型",
+            status="ready" if digest_ok else "error",
+            detail="YOLO权重存在且校验通过" if digest_ok else "YOLO权重摘要与固定版本不一致",
+        ))
+    else:
+        checks.append(ReadinessCheck(
+            key="professional_vision",
+            label="专业视觉模型",
+            status="degraded",
+            detail="当前使用Demo视觉回退，专业YOLO未就绪",
+        ))
+
+    classifier_state = str(vision_runtime_status.get("state", "unknown"))
+    checks.append(ReadinessCheck(
+        key="fire_classifier",
+        label="火情复核模型",
+        status="ready" if classifier_state == "ready" else "degraded",
+        detail=(
+            "多模型火情复核进程已预热"
+            if classifier_state == "ready"
+            else f"复核分支状态：{classifier_state}"
+        ),
+    ))
+
+    llm_ready = False
+    llm_detail = "未配置本地大模型，使用确定性推理"
+    if settings.reasoning_backend == "llm" and settings.llm_base_url and settings.llm_model:
+        health_root = settings.llm_base_url[:-3] if settings.llm_base_url.endswith("/v1") else settings.llm_base_url
+        try:
+            async with httpx.AsyncClient(timeout=2) as client:
+                response = await client.get(f"{health_root}/health")
+                response.raise_for_status()
+            llm_ready = True
+            llm_detail = f"本地大模型服务可用：{settings.llm_model}"
+        except (httpx.HTTPError, ValueError) as exc:
+            llm_detail = f"大模型健康检查未通过：{type(exc).__name__}"
+    checks.append(ReadinessCheck(
+        key="local_llm",
+        label="本地大模型",
+        status="ready" if llm_ready else "degraded",
+        detail=llm_detail,
+    ))
+
+    categories = {rule.get("category") for rule in agent.knowledge.rules}
+    knowledge_ready = {"fire", "smoke", "no_detection"}.issubset(categories)
+    checks.append(ReadinessCheck(
+        key="knowledge_base",
+        label="安全知识库",
+        status="ready" if knowledge_ready else "error",
+        detail=f"已载入{len(agent.knowledge.rules)}条版本化知识，覆盖{len(categories)}类风险边界",
+    ))
+
+    registered_tools = [item["name"] for item in agent.tools.descriptions()]
+    expected_tools = agent._plan_task("工业安全综合分析").tool_sequence
+    tools_ready = registered_tools == expected_tools
+    checks.append(ReadinessCheck(
+        key="agent_tools",
+        label="Agent专业工具",
+        status="ready" if tools_ready else "error",
+        detail=f"已注册{len(registered_tools)}个工具，规划与注册表{'一致' if tools_ready else '不一致'}",
+    ))
+
+    demo_ready = all(render_demo_case(case_id) for case_id in CASES)
+    checks.append(ReadinessCheck(
+        key="demo_cases",
+        label="验证案例",
+        status="ready" if demo_ready else "error",
+        detail=f"{len(CASES)}个可复现案例已就绪，并公开来源或生成边界",
+    ))
+    checks.append(ReadinessCheck(
+        key="report_exports",
+        label="报告导出",
+        status="ready",
+        detail="可打印HTML报告与结构化JSON导出接口已注册",
+    ))
+
+    statuses = {item.status for item in checks}
+    overall = "not_ready" if "error" in statuses else "degraded" if "degraded" in statuses else "ready"
+    return ReadinessResponse(status=overall, checks=checks)
 
 
 @router.post("/analyze", response_model=AnalysisResponse)

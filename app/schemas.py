@@ -214,6 +214,18 @@ class MetricsResponse(BaseModel):
     backend_counts: dict[str, int]
 
 
+class ReadinessCheck(BaseModel):
+    key: str
+    label: str
+    status: Literal["ready", "degraded", "error"]
+    detail: str
+
+
+class ReadinessResponse(BaseModel):
+    status: Literal["ready", "degraded", "not_ready"]
+    checks: list[ReadinessCheck]
+
+
 class DemoCaseInfo(BaseModel):
     case_id: str
     name: str

@@ -20,6 +20,26 @@ def test_competition_ui_exposes_core_ai_chain_and_human_review_boundary():
     assert "需人工复核" in html
     assert "riskCard.dataset.level" in script
     assert "align-items: start" in styles
+    assert "运行赛前环境自检" in html
+    assert "runReadinessCheck" in script
+
+
+def test_readiness_endpoint_reports_explicit_degradation_without_hiding_core_checks():
+    async def run():
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            return await client.get("/api/v1/readiness")
+
+    response = asyncio.run(run())
+    assert response.status_code == 200
+    body = response.json()
+    checks = {item["key"]: item for item in body["checks"]}
+    assert body["status"] == "degraded"
+    assert checks["professional_vision"]["status"] == "degraded"
+    assert checks["knowledge_base"]["status"] == "ready"
+    assert checks["agent_tools"]["status"] == "ready"
+    assert checks["demo_cases"]["status"] == "ready"
+    assert checks["report_exports"]["status"] == "ready"
 
 
 def test_standard_demo_cases_exercise_fire_smoke_and_review_paths():

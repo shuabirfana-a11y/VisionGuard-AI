@@ -14,6 +14,37 @@ loadDemoCases();
 updateMetrics();
 loadRuntimeProfile();
 
+document.querySelector("#readiness-button").addEventListener("click", runReadinessCheck);
+
+async function runReadinessCheck() {
+  const button = document.querySelector("#readiness-button");
+  const overall = document.querySelector("#readiness-overall");
+  const results = document.querySelector("#readiness-results");
+  button.disabled = true;
+  button.textContent = "正在检查模型与工具…";
+  overall.textContent = "自检进行中";
+  try {
+    const response = await fetch("/api/v1/readiness", {cache: "no-store"});
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.detail || "环境自检失败");
+    const labels = {ready: "全部就绪", degraded: "可运行但存在降级", not_ready: "存在阻断项"};
+    overall.textContent = labels[data.status] || data.status;
+    overall.className = `readiness-overall ${data.status}`;
+    results.hidden = false;
+    results.innerHTML = data.checks.map(item => `
+      <div class="readiness-item ${escapeHtml(item.status)}">
+        <span>${item.status === "ready" ? "✓" : item.status === "error" ? "×" : "!"}</span>
+        <div><b>${escapeHtml(item.label)}</b><small>${escapeHtml(item.detail)}</small></div>
+      </div>`).join("");
+  } catch (error) {
+    overall.textContent = error.message;
+    overall.className = "readiness-overall not_ready";
+  } finally {
+    button.disabled = false;
+    button.textContent = "重新运行环境自检";
+  }
+}
+
 async function loadRuntimeProfile() {
   const notice = document.querySelector("#runtime-notice");
   try {
