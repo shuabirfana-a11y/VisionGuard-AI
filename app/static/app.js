@@ -55,6 +55,7 @@ form.addEventListener("submit", async (event) => {
   event.preventDefault();
   const button = form.querySelector("button");
   button.disabled = true;
+  button.textContent = "Agent 正在编排视觉、知识与推理工具…";
   statusEl.textContent = "Agent 分析中";
   statusEl.className = "status running";
   const payload = new FormData(form);
@@ -74,6 +75,7 @@ form.addEventListener("submit", async (event) => {
     statusEl.className = "status error";
   } finally {
     button.disabled = false;
+    button.textContent = "启动 VisionGuard Agent";
   }
 });
 
@@ -82,7 +84,9 @@ function renderResult(data) {
   emptyEl.hidden = true;
   resultEl.hidden = false;
   const riskLabels = {critical: "极高", high: "高", medium: "中", low: "低", unknown: "待核查"};
-  document.querySelector("#risk-level").textContent = `${riskLabels[data.risk.overall_level] || data.risk.overall_level} · ${data.risk.overall_level}`;
+  const riskCard = document.querySelector(".risk-card");
+  riskCard.dataset.level = data.risk.overall_level;
+  document.querySelector("#risk-level").textContent = riskLabels[data.risk.overall_level] || data.risk.overall_level;
   document.querySelector("#risk-summary").textContent = data.risk.summary;
   latestVision = data.vision;
   drawEvidence();
@@ -197,12 +201,13 @@ async function loadDemoCases() {
     const cases = await response.json();
     container.innerHTML = cases.map(item => `
       <button type="button" class="demo-case" data-case-id="${escapeHtml(item.case_id)}" title="${escapeHtml(item.description)}">
-        ${escapeHtml(item.name)}
+        <span>${escapeHtml(item.name)}</span>
+        <small>${escapeHtml(item.description)}</small>
       </button>`).join("");
     container.querySelectorAll(".demo-case").forEach(button => {
       button.addEventListener("click", async () => {
         try {
-          await runDemoCase(button.dataset.caseId, button.textContent.trim());
+          await runDemoCase(button.dataset.caseId, button.querySelector("span").textContent.trim());
         } catch (error) {
           statusEl.textContent = "案例加载失败";
           statusEl.className = "status error";

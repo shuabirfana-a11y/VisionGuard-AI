@@ -4,13 +4,20 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>VisionGuard AI</title>
-  <link rel="stylesheet" href="/static/styles.css">
+  <link rel="stylesheet" href="/static/styles.css?v=20260824">
 </head>
 <body>
   <header class="hero">
     <div class="eyebrow">工业安全 · 多模态视觉风险智能体</div>
     <h1>VisionGuard AI</h1>
     <p>让专业视觉模型提供证据，让智能体组织工具，让安全知识约束风险解释。</p>
+    <div class="core-flow" aria-label="VisionGuard AI 核心工作流">
+      <span>专业视觉取证</span><i>→</i>
+      <span>Agent 任务编排</span><i>→</i>
+      <span>安全知识增强</span><i>→</i>
+      <span>风险推理</span><i>→</i>
+      <span>决策辅助</span>
+    </div>
   </header>
 
   <main>
@@ -50,7 +57,7 @@
       <div id="empty" class="empty">上传图片后，系统将在此展示视觉证据、风险等级、知识依据和 Agent 调用轨迹。</div>
       <div id="result" hidden>
         <div class="risk-card">
-          <span>综合风险</span>
+          <div class="risk-card-label"><span>综合风险</span><em>需人工复核</em></div>
           <strong id="risk-level">—</strong>
           <p id="risk-summary"></p>
         </div>
@@ -73,8 +80,10 @@
           <a id="html-report" class="action-link" target="_blank" rel="noopener">打开可打印报告</a>
           <a id="json-report" class="action-link">下载结构化JSON</a>
         </div>
-        <h3>Agent 工具调用轨迹</h3>
-        <ol id="trace" class="trace"></ol>
+        <details class="trace-details" open>
+          <summary>Agent 工具调用轨迹</summary>
+          <ol id="trace" class="trace"></ol>
+        </details>
         <details>
           <summary>查看完整结构化结果</summary>
           <pre id="json"></pre>
@@ -82,6 +91,6 @@
       </div>
     </section>
   </main>
-  <script src="/static/app.js"></script>
+  <script src="/static/app.js?v=20260824"></script>
 </body>
 </html>

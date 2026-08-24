@@ -1,4 +1,5 @@
 import asyncio
+from pathlib import Path
 
 import httpx
 
@@ -6,6 +7,19 @@ from app.main import app
 from app.services.demo_cases import render_demo_case
 from app.services.store import AnalysisStore
 from app.services.vision.demo import DemoColorDetector
+
+
+def test_competition_ui_exposes_core_ai_chain_and_human_review_boundary():
+    root = Path(__file__).resolve().parents[1]
+    html = (root / "app" / "static" / "index.html").read_text(encoding="utf-8")
+    script = (root / "app" / "static" / "app.js").read_text(encoding="utf-8")
+    styles = (root / "app" / "static" / "styles.css").read_text(encoding="utf-8")
+    assert "专业视觉取证" in html
+    assert "Agent 任务编排" in html
+    assert "安全知识增强" in html
+    assert "需人工复核" in html
+    assert "riskCard.dataset.level" in script
+    assert "align-items: start" in styles
 
 
 def test_standard_demo_cases_exercise_fire_smoke_and_review_paths():
