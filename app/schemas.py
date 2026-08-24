@@ -132,6 +132,8 @@ class AgentTraceStep(BaseModel):
     tool: str
     status: Literal["completed", "skipped", "failed"]
     summary: str
+    duration_ms: float = Field(default=0, ge=0)
+    references: list[str] = Field(default_factory=list)
 
 
 class SafetyReport(BaseModel):
@@ -208,3 +210,5 @@ class DemoCaseInfo(BaseModel):
     description: str
     expected_signal: str
     synthetic: bool = True
+    source_note: str = "VisionGuard AI合成案例"
+    license: str = "项目内生成"

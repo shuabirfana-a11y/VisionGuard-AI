@@ -4,7 +4,7 @@ from pathlib import Path
 import httpx
 
 from app.main import app
-from app.services.demo_cases import render_demo_case
+from app.services.demo_cases import CASES, render_demo_case
 from app.services.store import AnalysisStore
 from app.services.vision.demo import DemoColorDetector
 
@@ -24,12 +24,13 @@ def test_competition_ui_exposes_core_ai_chain_and_human_review_boundary():
 
 def test_standard_demo_cases_exercise_fire_smoke_and_review_paths():
     detector = DemoColorDetector()
-    fire = asyncio.run(detector.detect(render_demo_case("synthetic-fire"), "fire.png"))
-    smoke = asyncio.run(detector.detect(render_demo_case("synthetic-smoke"), "smoke.png"))
     clear = asyncio.run(detector.detect(render_demo_case("synthetic-clear"), "clear.png"))
-    assert "fire" in {item.category for item in fire.detections}
-    assert "smoke" in {item.category for item in smoke.detections}
+    assert render_demo_case("verified-fire").startswith(b"\xff\xd8")
+    assert render_demo_case("verified-smoke").startswith(b"\xff\xd8")
     assert clear.detections == []
+    assert CASES["verified-fire"].expected_signal == "fire"
+    assert CASES["verified-smoke"].expected_signal == "smoke"
+    assert CASES["verified-smoke"].license == "CC-BY-4.0"
 
 
 def test_stage4_metrics_records_and_report_exports():
@@ -48,7 +49,7 @@ def test_stage4_metrics_records_and_report_exports():
             html = await client.get(f"/api/v1/analyses/{request_id}/report.html")
             json_report = await client.get(f"/api/v1/analyses/{request_id}/report.json")
             cases = await client.get("/api/v1/demo-cases")
-            case_image = await client.get("/api/v1/demo-cases/synthetic-smoke/image")
+            case_image = await client.get("/api/v1/demo-cases/verified-smoke/image")
             return analysis, metrics, records, html, json_report, cases, case_image
 
     analysis, metrics, records, html, json_report, cases, case_image = asyncio.run(run())
@@ -61,7 +62,10 @@ def test_stage4_metrics_records_and_report_exports():
     assert "https://wb.flk.npc.gov.cn/" in html.text
     assert json_report.headers["content-type"].startswith("application/json")
     assert len(cases.json()) == 3
-    assert case_image.headers["x-visionguard-synthetic"] == "true"
+    assert case_image.headers["x-visionguard-synthetic"] == "false"
+    assert case_image.headers["content-type"] == "image/jpeg"
+    assert case_image.headers["x-visionguard-case"] == "verified-smoke"
+    assert cases.json()[1]["source_note"].startswith("IFireSmoke")
 
 
 def test_store_redacts_credentials_and_identifiers():
@@ -102,6 +106,8 @@ def test_follow_up_qa_reuses_existing_evidence_without_redetection():
         "reasoning.explain",
     ]
     assert "未重新执行视觉检测" in body["agent_trace"][0]["summary"]
+    assert "ev-fire-001" in body["agent_trace"][0]["references"]
+    assert body["agent_trace"][1]["duration_ms"] >= 0
 
 
 def test_follow_up_qa_rejects_expired_or_invalid_requests():

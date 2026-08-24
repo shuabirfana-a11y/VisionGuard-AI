@@ -102,3 +102,6 @@ def test_http_api_accepts_image_and_returns_agent_trace():
     assert body["reasoning"]["used_llm"] is False
     assert body["reasoning"]["evidence_ids"] == ["ev-fire-001"]
     assert len(body["agent_trace"]) == 5
+    assert all(step["duration_ms"] >= 0 for step in body["agent_trace"])
+    assert body["agent_trace"][0]["references"] == ["ev-fire-001"]
+    assert body["agent_trace"][1]["references"]

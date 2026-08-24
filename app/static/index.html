@@ -24,8 +24,8 @@
     <section class="panel demo-console">
       <div>
         <div class="eyebrow">比赛演示模式</div>
-        <h2>标准合成案例</h2>
-        <p>案例只用于展示产品闭环，不代表真实工业现场或模型测试集。</p>
+        <h2>一键验证案例</h2>
+        <p>开放授权样本用于复现产品闭环，合成样本用于展示“未检出不等于安全”；均不作为精度统计。</p>
       </div>
       <div id="demo-cases" class="demo-buttons"></div>
       <div id="metrics" class="metrics"></div>
@@ -61,6 +61,7 @@
           <strong id="risk-level">—</strong>
           <p id="risk-summary"></p>
         </div>
+        <div id="audit-summary" class="audit-summary" aria-label="本次分析可信度概览"></div>
         <div id="model-meta" class="model-meta"></div>
         <h3>视觉证据</h3>
         <div id="detections" class="cards"></div>
@@ -82,7 +83,7 @@
         </div>
         <details class="trace-details" open>
           <summary>Agent 工具调用轨迹</summary>
-          <ol id="trace" class="trace"></ol>
+          <ol id="trace" class="trace trace-pipeline"></ol>
         </details>
         <details>
           <summary>查看完整结构化结果</summary>

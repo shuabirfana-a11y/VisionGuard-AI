@@ -96,10 +96,15 @@ async def demo_case_image(case_id: str) -> Response:
         payload = render_demo_case(case_id)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="演示案例不存在") from exc
+    media_type = "image/jpeg" if payload.startswith(b"\xff\xd8") else "image/png"
     return Response(
         payload,
-        media_type="image/png",
-        headers={"X-VisionGuard-Synthetic": "true", "Cache-Control": "no-store"},
+        media_type=media_type,
+        headers={
+            "X-VisionGuard-Synthetic": str(CASES[case_id].synthetic).lower(),
+            "X-VisionGuard-Case": case_id,
+            "Cache-Control": "no-store",
+        },
     )
 
 

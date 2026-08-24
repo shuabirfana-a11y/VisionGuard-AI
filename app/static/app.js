@@ -88,6 +88,15 @@ function renderResult(data) {
   riskCard.dataset.level = data.risk.overall_level;
   document.querySelector("#risk-level").textContent = riskLabels[data.risk.overall_level] || data.risk.overall_level;
   document.querySelector("#risk-summary").textContent = data.risk.summary;
+  const visualEvidenceCount = data.vision.detections.length
+    + (data.vision.fire_classification?.available ? 1 : 0);
+  const fallbackCount = Number(Boolean(data.vision.inference.fallback_used))
+    + Number(Boolean(data.reasoning.fallback_used));
+  document.querySelector("#audit-summary").innerHTML = `
+    <div><span>视觉证据</span><b>${visualEvidenceCount}</b><small>条可引用证据</small></div>
+    <div><span>知识依据</span><b>${data.knowledge.length}</b><small>条来源记录</small></div>
+    <div><span>Agent 工具</span><b>${data.agent_trace.length}</b><small>步已完成</small></div>
+    <div><span>回退次数</span><b>${fallbackCount}</b><small>${fallbackCount ? "已明确标注" : "完整专业链路"}</small></div>`;
   latestVision = data.vision;
   drawEvidence();
   const inference = data.vision.inference;
@@ -161,7 +170,12 @@ function renderResult(data) {
   document.querySelector("#html-report").href = `/api/v1/analyses/${encodeURIComponent(data.request_id)}/report.html`;
   document.querySelector("#json-report").href = `/api/v1/analyses/${encodeURIComponent(data.request_id)}/report.json`;
   document.querySelector("#json-report").download = `visionguard-${data.request_id}.json`;
-  document.querySelector("#trace").innerHTML = data.agent_trace.map(item => `<li><b>${escapeHtml(item.tool)}</b>：${escapeHtml(item.summary)}</li>`).join("");
+  document.querySelector("#trace").innerHTML = data.agent_trace.map((item, index) => `
+    <li>
+      <span class="trace-index">${index + 1}</span>
+      <div><b>${escapeHtml(item.tool)}</b><p>${escapeHtml(item.summary)}</p>
+      <small>${Number(item.duration_ms || 0).toFixed(2)} ms${item.references?.length ? ` · 引用 ${renderReferences(item.references)}` : ""}</small></div>
+    </li>`).join("");
   document.querySelector("#json").textContent = JSON.stringify(data, null, 2);
 }
 
@@ -203,6 +217,7 @@ async function loadDemoCases() {
       <button type="button" class="demo-case" data-case-id="${escapeHtml(item.case_id)}" title="${escapeHtml(item.description)}">
         <span>${escapeHtml(item.name)}</span>
         <small>${escapeHtml(item.description)}</small>
+        <small class="case-source">${escapeHtml(item.source_note)} · ${escapeHtml(item.license)}</small>
       </button>`).join("");
     container.querySelectorAll(".demo-case").forEach(button => {
       button.addEventListener("click", async () => {
@@ -223,7 +238,8 @@ async function runDemoCase(caseId, name) {
   const response = await fetch(`/api/v1/demo-cases/${encodeURIComponent(caseId)}/image`);
   if (!response.ok) throw new Error("演示案例加载失败");
   const blob = await response.blob();
-  const file = new File([blob], `${caseId}.png`, {type: "image/png"});
+  const extension = blob.type === "image/jpeg" ? "jpg" : "png";
+  const file = new File([blob], `${caseId}.${extension}`, {type: blob.type});
   const transfer = new DataTransfer();
   transfer.items.add(file);
   imageInput.files = transfer.files;

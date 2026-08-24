@@ -1,3 +1,4 @@
+from time import perf_counter
 from uuid import uuid4
 
 from app.core.tools import ToolDefinition, ToolRegistry
@@ -51,6 +52,7 @@ class VisionGuardAgent:
         normalized_task = task.strip() or "识别图片中的工业安全风险并给出核查建议"
         trace: list[AgentTraceStep] = []
 
+        step_started = perf_counter()
         vision = await self.tools.invoke(
             "vision.detect", image_bytes=image_bytes, file_name=file_name
         )
@@ -61,11 +63,19 @@ class VisionGuardAgent:
                 f"{vision.inference.backend}/{vision.inference.model_version} 在 "
                 f"{vision.inference.inference_ms:.2f} ms 内获得 {len(vision.detections)} 条结构化视觉证据"
             ),
+            duration_ms=round((perf_counter() - step_started) * 1000, 2),
+            references=[item.evidence_id for item in vision.detections]
+            + (
+                [vision.fire_classification.evidence_id]
+                if vision.fire_classification and vision.fire_classification.available
+                else []
+            ),
         ))
 
         categories = {item.category for item in vision.detections}
         if vision.fire_classification and vision.fire_classification.available and vision.fire_classification.prediction:
             categories.add("fire")
+        step_started = perf_counter()
         knowledge = await self.tools.invoke(
             "knowledge.retrieve", categories=sorted(categories), task=normalized_task
         )
@@ -76,15 +86,25 @@ class VisionGuardAgent:
                 f"通过 {self.knowledge.retrieval_method} 检索到 "
                 f"{len(knowledge)} 条安全知识依据"
             ),
+            duration_ms=round((perf_counter() - step_started) * 1000, 2),
+            references=[item.citation_id for item in knowledge],
         ))
 
+        step_started = perf_counter()
         risk = await self.tools.invoke("risk.analyze", vision=vision, knowledge=knowledge)
         trace.append(AgentTraceStep(
             tool="risk.analyze",
             status="completed",
             summary=f"形成风险等级：{risk.overall_level}",
+            duration_ms=round((perf_counter() - step_started) * 1000, 2),
+            references=list(dict.fromkeys(
+                evidence_id
+                for item in risk.items
+                for evidence_id in item.evidence_ids
+            )),
         ))
 
+        step_started = perf_counter()
         reasoning = await self.tools.invoke(
             "reasoning.explain",
             task=normalized_task,
@@ -99,8 +119,11 @@ class VisionGuardAgent:
                 f"{reasoning.provider}/{reasoning.model} 生成证据约束解释"
                 + ("，已启用回退" if reasoning.fallback_used else "")
             ),
+            duration_ms=round((perf_counter() - step_started) * 1000, 2),
+            references=list(dict.fromkeys(reasoning.evidence_ids + reasoning.knowledge_ids)),
         ))
 
+        step_started = perf_counter()
         report = await self.tools.invoke(
             "report.generate",
             task=normalized_task,
@@ -110,7 +133,11 @@ class VisionGuardAgent:
             reasoning=reasoning,
         )
         trace.append(AgentTraceStep(
-            tool="report.generate", status="completed", summary="生成结构化安全辅助报告"
+            tool="report.generate",
+            status="completed",
+            summary="生成结构化安全辅助报告",
+            duration_ms=round((perf_counter() - step_started) * 1000, 2),
+            references=list(dict.fromkeys(reasoning.evidence_ids + reasoning.knowledge_ids)),
         ))
 
         return AnalysisResponse(
@@ -128,6 +155,7 @@ class VisionGuardAgent:
         self, analysis: AnalysisResponse, question: str
     ) -> FollowUpResponse:
         normalized = question.strip()
+        step_started = perf_counter()
         reasoning = await self.tools.invoke(
             "reasoning.explain",
             task=normalized,
@@ -153,11 +181,14 @@ class VisionGuardAgent:
                         f"复用 {len(reasoning.evidence_ids)} 条视觉证据和 "
                         f"{len(reasoning.knowledge_ids)} 条知识依据，未重新执行视觉检测"
                     ),
+                    references=list(dict.fromkeys(reasoning.evidence_ids + reasoning.knowledge_ids)),
                 ),
                 AgentTraceStep(
                     tool="reasoning.explain",
                     status="completed",
                     summary=f"{reasoning.provider}/{reasoning.model} 生成证据约束追问回答",
+                    duration_ms=round((perf_counter() - step_started) * 1000, 2),
+                    references=list(dict.fromkeys(reasoning.evidence_ids + reasoning.knowledge_ids)),
                 ),
             ],
         )
