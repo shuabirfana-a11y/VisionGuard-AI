@@ -139,6 +139,8 @@ button:disabled { opacity: .55; cursor: wait; }
 .muted { color: var(--muted); }
 .report-actions { display: flex; gap: 10px; margin-top: 18px; }
 .action-link { flex: 1; padding: 11px; text-align: center; text-decoration: none; border: 1px solid #31577c; border-radius: 9px; color: var(--blue); background: rgba(72,168,255,.06); }
+.report-actions button.action-link { width: auto; margin: 0; font: inherit; cursor: pointer; }
+.report-actions button.action-link:disabled { color: var(--muted); cursor: not-allowed; }
 li { margin: 8px 0; line-height: 1.55; }
 .trace { padding-left: 26px; }
 .trace-pipeline { padding: 0; list-style: none; }

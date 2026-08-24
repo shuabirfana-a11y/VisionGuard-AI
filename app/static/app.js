@@ -2,6 +2,7 @@ const form = document.querySelector("#analysis-form");
 const imageInput = document.querySelector("#image");
 const evidenceStage = document.querySelector("#evidence-stage");
 const evidenceCanvas = document.querySelector("#evidence-canvas");
+const evidenceDownload = document.querySelector("#evidence-download");
 const statusEl = document.querySelector("#status");
 const resultEl = document.querySelector("#result");
 const emptyEl = document.querySelector("#empty");
@@ -73,6 +74,7 @@ async function loadRuntimeProfile() {
 imageInput.addEventListener("change", () => {
   const file = imageInput.files[0];
   if (!file) return;
+  evidenceDownload.disabled = true;
   if (sourceUrl) URL.revokeObjectURL(sourceUrl);
   sourceUrl = URL.createObjectURL(file);
   latestVision = null;
@@ -140,6 +142,7 @@ function renderResult(data) {
     <small>安全约束：${escapeHtml(plan.safety_constraints.join("；"))}</small>`;
   latestVision = data.vision;
   drawEvidence();
+  evidenceDownload.disabled = false;
   const inference = data.vision.inference;
   const fallback = inference.fallback_used
     ? `<span class="fallback-badge">Demo回退：${escapeHtml(inference.fallback_reason || "未说明")}</span>`
@@ -219,6 +222,14 @@ function renderResult(data) {
     </li>`).join("");
   document.querySelector("#json").textContent = JSON.stringify(data, null, 2);
 }
+
+evidenceDownload.addEventListener("click", () => {
+  if (!sourceImage || !latestVision || evidenceDownload.disabled) return;
+  const link = document.createElement("a");
+  link.download = `visionguard-evidence-${latestRequestId || "analysis"}.png`;
+  link.href = evidenceCanvas.toDataURL("image/png");
+  link.click();
+});
 
 document.querySelector("#qa-form").addEventListener("submit", async event => {
   event.preventDefault();
