@@ -5,6 +5,7 @@ __pycache__/
 .venv/
 .env
 .tmp/
+tmp/
 data/uploads/
 models/*.pt
 models/
