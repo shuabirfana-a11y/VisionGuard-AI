@@ -1,0 +1,1001 @@
+{
+  "generated_at": "2026-08-22T12:22:47.628551+00:00",
+  "base_url": "http://127.0.0.1:8000",
+  "manifest": "evaluation/full_chain_manifest.csv",
+  "concurrency": 4,
+  "summary": {
+    "requested_samples": 20,
+    "successful_samples": 20,
+    "failed_samples": 0,
+    "request_success_rate": 1.0,
+    "agent_success_rate": 1.0,
+    "llm_usage_rate": 1.0,
+    "reasoning_fallback_count": 0,
+    "grounded_reasoning_rate": 1.0,
+    "classifier_metrics": {
+      "samples": 20,
+      "accuracy": 1.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "tp": 5,
+      "fp": 0,
+      "fn": 0,
+      "tn": 15
+    },
+    "detection_metrics": {
+      "iou_threshold": 0.5,
+      "box_level": {
+        "overall": {
+          "tp": 10,
+          "fp": 7,
+          "fn": 7,
+          "precision": 0.5882352941176471,
+          "recall": 0.5882352941176471,
+          "f1": 0.5882352941176471
+        },
+        "fire": {
+          "tp": 5,
+          "fp": 2,
+          "fn": 1,
+          "precision": 0.7142857142857143,
+          "recall": 0.8333333333333334,
+          "f1": 0.7692307692307692
+        },
+        "smoke": {
+          "tp": 5,
+          "fp": 5,
+          "fn": 6,
+          "precision": 0.5,
+          "recall": 0.45454545454545453,
+          "f1": 0.47619047619047616
+        }
+      },
+      "image_level": {
+        "fire": {
+          "samples": 20,
+          "accuracy": 0.95,
+          "precision": 1.0,
+          "recall": 0.8,
+          "f1": 0.888888888888889,
+          "tp": 4,
+          "fp": 0,
+          "fn": 1,
+          "tn": 15
+        },
+        "smoke": {
+          "samples": 20,
+          "accuracy": 0.65,
+          "precision": 0.6666666666666666,
+          "recall": 0.6,
+          "f1": 0.631578947368421,
+          "tp": 6,
+          "fp": 3,
+          "fn": 4,
+          "tn": 7
+        }
+      }
+    },
+    "latency_ms": {
+      "mean": 7287.104,
+      "median": 7322.385,
+      "p95": 11171.0495,
+      "maximum": 11208.47
+    },
+    "fusion_status_counts": {
+      "confirmed": 4,
+      "classifier_only": 1,
+      "no_fire_evidence": 15
+    },
+    "risk_level_counts": {
+      "high": 5,
+      "critical": 2,
+      "medium": 6,
+      "unknown": 7
+    },
+    "vision_fallback_count": 0,
+    "classifier_unavailable_count": 0,
+    "failures": []
+  },
+  "records": [
+    {
+      "image": "C:\\Users\\X\\Documents\\Codex\\2026-08-21\\visionguard-ai\\evaluation\\data\\ifiresmoke\\fire_001.jpg",
+      "label": 1,
+      "source": "shahriar-5/IFireSmoke@22b3c06db783d3e75c74234faa511020912eac64",
+      "license": "CC-BY-4.0 (Hub card; archive README states MIT)",
+      "group": "ifiresmoke:0182_jpg",
+      "ground_truth_available": true,
+      "ground_truth": [
+        {
+          "category": "fire",
+          "bbox": {
+            "x1": 148.5,
+            "y1": 306.0,
+            "x2": 204.5,
+            "y2": 406.0
+          }
+        }
+      ],
+      "success": true,
+      "total_ms": 5816.04,
+      "prediction": 1,
+      "probability": 0.968699,
+      "classifier_available": true,
+      "classifier_inference_ms": 297.58,
+      "fusion_status": "confirmed",
+      "risk_level": "high",
+      "detections": [
+        {
+          "evidence_id": "ev-fire-001",
+          "category": "fire",
+          "label": "fire",
+          "confidence": 0.1399,
+          "bbox": {
+            "x1": 149,
+            "y1": 278,
+            "x2": 219,
+            "y2": 386
+          },
+          "area_ratio": 0.0437,
+          "source": "ultralytics-yolo:fire-smoke-yolov8n-upstream-v1.0.0"
+        }
+      ],
+      "vision_fallback": false,
+      "agent_success": true,
+      "reasoning_used_llm": true,
+      "reasoning_fallback": false,
+      "reasoning_fallback_reason": null,
+      "reasoning_grounded": true
+    },
+    {
+      "image": "C:\\Users\\X\\Documents\\Codex\\2026-08-21\\visionguard-ai\\evaluation\\data\\ifiresmoke\\fire_002.jpg",
+      "label": 1,
+      "source": "shahriar-5/IFireSmoke@22b3c06db783d3e75c74234faa511020912eac64",
+      "license": "CC-BY-4.0 (Hub card; archive README states MIT)",
+      "group": "ifiresmoke:FireDataV4_1_885_jpg",
+      "ground_truth_available": true,
+      "ground_truth": [
+        {
+          "category": "fire",
+          "bbox": {
+            "x1": 0.0,
+            "y1": 59.0,
+            "x2": 188.0,
+            "y2": 335.0
+          }
+        },
+        {
+          "category": "fire",
+          "bbox": {
+            "x1": 274.5,
+            "y1": 99.5,
+            "x2": 415.5,
+            "y2": 355.5
+          }
+        }
+      ],
+      "success": true,
+      "total_ms": 5559.54,
+      "prediction": 1,
+      "probability": 0.97122,
+      "classifier_available": true,
+      "classifier_inference_ms": 659.45,
+      "fusion_status": "confirmed",
+      "risk_level": "critical",
+      "detections": [
+        {
+          "evidence_id": "ev-fire-001",
+          "category": "fire",
+          "label": "fire",
+          "confidence": 0.8289,
+          "bbox": {
+            "x1": 0,
+            "y1": 73,
+            "x2": 185,
+            "y2": 312
+          },
+          "area_ratio": 0.2555,
+          "source": "ultralytics-yolo:fire-smoke-yolov8n-upstream-v1.0.0"
+        },
+        {
+          "evidence_id": "ev-fire-002",
+          "category": "fire",
+          "label": "fire",
+          "confidence": 0.5479,
+          "bbox": {
+            "x1": 274,
+            "y1": 112,
+            "x2": 415,
+            "y2": 382
+          },
+          "area_ratio": 0.22,
+          "source": "ultralytics-yolo:fire-smoke-yolov8n-upstream-v1.0.0"
+        },
+        {
+          "evidence_id": "ev-smoke-003",
+          "category": "smoke",
+          "label": "smoke",
+          "confidence": 0.2296,
+          "bbox": {
+            "x1": 1,
+            "y1": 0,
+            "x2": 223,
+            "y2": 139
+          },
+          "area_ratio": 0.1783,
+          "source": "ultralytics-yolo:fire-smoke-yolov8n-upstream-v1.0.0"
+        },
+        {
+          "evidence_id": "ev-fire-004",
+          "category": "fire",
+          "label": "fire",
+          "confidence": 0.2254,
+          "bbox": {
+            "x1": 286,
+            "y1": 99,
+            "x2": 325,
+            "y2": 153
+          },
+          "area_ratio": 0.0122,
+          "source": "ultralytics-yolo:fire-smoke-yolov8n-upstream-v1.0.0"
+        },
+        {
+          "evidence_id": "ev-fire-005",
+          "category": "fire",
+          "label": "fire",
+          "confidence": 0.101,
+          "bbox": {
+            "x1": 192,
+            "y1": 0,
+            "x2": 262,
+            "y2": 274
+          },
+          "area_ratio": 0.1108,
+          "source": "ultralytics-yolo:fire-smoke-yolov8n-upstream-v1.0.0"
+        }
+      ],
+      "vision_fallback": false,
+      "agent_success": true,
+      "reasoning_used_llm": true,
+      "reasoning_fallback": false,
+      "reasoning_fallback_reason": null,
+      "reasoning_grounded": true
+    },
+    {
+      "image": "C:\\Users\\X\\Documents\\Codex\\2026-08-21\\visionguard-ai\\evaluation\\data\\ifiresmoke\\fire_003.jpg",
+      "label": 1,
+      "source": "shahriar-5/IFireSmoke@22b3c06db783d3e75c74234faa511020912eac64",
+      "license": "CC-BY-4.0 (Hub card; archive README states MIT)",
+      "group": "ifiresmoke:0119_jpg",
+      "ground_truth_available": true,
+      "ground_truth": [
+        {
+          "category": "fire",
+          "bbox": {
+            "x1": 132.0,
+            "y1": 165.0,
+            "x2": 160.0,
+            "y2": 225.0
+          }
+        }
+      ],
+      "success": true,
+      "total_ms": 3161.62,
+      "prediction": 1,
+      "probability": 0.965088,
+      "classifier_available": true,
+      "classifier_inference_ms": 450.41,
+      "fusion_status": "classifier_only",
+      "risk_level": "high",
+      "detections": [],
+      "vision_fallback": false,
+      "agent_success": true,
+      "reasoning_used_llm": true,
+      "reasoning_fallback": false,
+      "reasoning_fallback_reason": null,
+      "reasoning_grounded": true
+    },
+    {
+      "image": "C:\\Users\\X\\Documents\\Codex\\2026-08-21\\visionguard-ai\\evaluation\\data\\ifiresmoke\\fire_004.jpg",
+      "label": 1,
+      "source": "shahriar-5/IFireSmoke@22b3c06db783d3e75c74234faa511020912eac64",
+      "license": "CC-BY-4.0 (Hub card; archive README states MIT)",
+      "group": "ifiresmoke:FireDataV6_1_1353_jpg",
+      "ground_truth_available": true,
+      "ground_truth": [
+        {
+          "category": "fire",
+          "bbox": {
+            "x1": 118.5,
+            "y1": 68.0,
+            "x2": 314.5,
+            "y2": 323.0
+          }
+        }
+      ],
+      "success": true,
+      "total_ms": 9907.01,
+      "prediction": 1,
+      "probability": 0.971581,
+      "classifier_available": true,
+      "classifier_inference_ms": 1220.52,
+      "fusion_status": "confirmed",
+      "risk_level": "critical",
+      "detections": [
+        {
+          "evidence_id": "ev-fire-001",
+          "category": "fire",
+          "label": "fire",
+          "confidence": 0.8195,
+          "bbox": {
+            "x1": 131,
+            "y1": 14,
+            "x2": 307,
+            "y2": 308
+          },
+          "area_ratio": 0.299,
+          "source": "ultralytics-yolo:fire-smoke-yolov8n-upstream-v1.0.0"
+        }
+      ],
+      "vision_fallback": false,
+      "agent_success": true,
+      "reasoning_used_llm": true,
+      "reasoning_fallback": false,
+      "reasoning_fallback_reason": null,
+      "reasoning_grounded": true
+    },
+    {
+      "image": "C:\\Users\\X\\Documents\\Codex\\2026-08-21\\visionguard-ai\\evaluation\\data\\ifiresmoke\\fire_005.jpg",
+      "label": 1,
+      "source": "shahriar-5/IFireSmoke@22b3c06db783d3e75c74234faa511020912eac64",
+      "license": "CC-BY-4.0 (Hub card; archive README states MIT)",
+      "group": "ifiresmoke:1a228a4049efc30e_jpg",
+      "ground_truth_available": true,
+      "ground_truth": [
+        {
+          "category": "fire",
+          "bbox": {
+            "x1": 71.5,
+            "y1": 92.0,
+            "x2": 353.5,
+            "y2": 333.0
+          }
+        }
+      ],
+      "success": true,
+      "total_ms": 10242.96,
+      "prediction": 1,
+      "probability": 0.971612,
+      "classifier_available": true,
+      "classifier_inference_ms": 275.95,
+      "fusion_status": "confirmed",
+      "risk_level": "high",
+      "detections": [
+        {
+          "evidence_id": "ev-fire-001",
+          "category": "fire",
+          "label": "fire",
+          "confidence": 0.7339,
+          "bbox": {
+            "x1": 64,
+            "y1": 49,
+            "x2": 353,
+            "y2": 330
+          },
+          "area_ratio": 0.4693,
+          "source": "ultralytics-yolo:fire-smoke-yolov8n-upstream-v1.0.0"
+        }
+      ],
+      "vision_fallback": false,
+      "agent_success": true,
+      "reasoning_used_llm": true,
+      "reasoning_fallback": false,
+      "reasoning_fallback_reason": null,
+      "reasoning_grounded": true
+    },
+    {
+      "image": "C:\\Users\\X\\Documents\\Codex\\2026-08-21\\visionguard-ai\\evaluation\\data\\ifiresmoke\\smoke_001.jpg",
+      "label": 0,
+      "source": "shahriar-5/IFireSmoke@22b3c06db783d3e75c74234faa511020912eac64",
+      "license": "CC-BY-4.0 (Hub card; archive README states MIT)",
+      "group": "ifiresmoke:FireDataV8_1_2886_jpg",
+      "ground_truth_available": true,
+      "ground_truth": [
+        {
+          "category": "smoke",
+          "bbox": {
+            "x1": 50.0,
+            "y1": 18.0,
+            "x2": 413.0,
+            "y2": 382.0
+          }
+        }
+      ],
+      "success": true,
+      "total_ms": 11208.47,
+      "prediction": 0,
+      "probability": 0.057086,
+      "classifier_available": true,
+      "classifier_inference_ms": 286.13,
+      "fusion_status": "no_fire_evidence",
+      "risk_level": "medium",
+      "detections": [
+        {
+          "evidence_id": "ev-smoke-001",
+          "category": "smoke",
+          "label": "smoke",
+          "confidence": 0.3452,
+          "bbox": {
+            "x1": 45,
+            "y1": 7,
+            "x2": 414,
+            "y2": 371
+          },
+          "area_ratio": 0.7761,
+          "source": "ultralytics-yolo:fire-smoke-yolov8n-upstream-v1.0.0"
+        }
+      ],
+      "vision_fallback": false,
+      "agent_success": true,
+      "reasoning_used_llm": true,
+      "reasoning_fallback": false,
+      "reasoning_fallback_reason": null,
+      "reasoning_grounded": true
+    },
+    {
+      "image": "C:\\Users\\X\\Documents\\Codex\\2026-08-21\\visionguard-ai\\evaluation\\data\\ifiresmoke\\smoke_002.jpg",
+      "label": 0,
+      "source": "shahriar-5/IFireSmoke@22b3c06db783d3e75c74234faa511020912eac64",
+      "license": "CC-BY-4.0 (Hub card; archive README states MIT)",
+      "group": "ifiresmoke:FireDataV8_1_3944_jpg",
+      "ground_truth_available": true,
+      "ground_truth": [
+        {
+          "category": "smoke",
+          "bbox": {
+            "x1": 49.0,
+            "y1": 29.5,
+            "x2": 390.0,
+            "y2": 372.5
+          }
+        }
+      ],
+      "success": true,
+      "total_ms": 11103.02,
+      "prediction": 0,
+      "probability": 0.073931,
+      "classifier_available": true,
+      "classifier_inference_ms": 447.04,
+      "fusion_status": "no_fire_evidence",
+      "risk_level": "high",
+      "detections": [
+        {
+          "evidence_id": "ev-smoke-001",
+          "category": "smoke",
+          "label": "smoke",
+          "confidence": 0.7855,
+          "bbox": {
+            "x1": 3,
+            "y1": 0,
+            "x2": 374,
+            "y2": 375
+          },
+          "area_ratio": 0.8039,
+          "source": "ultralytics-yolo:fire-smoke-yolov8n-upstream-v1.0.0"
+        }
+      ],
+      "vision_fallback": false,
+      "agent_success": true,
+      "reasoning_used_llm": true,
+      "reasoning_fallback": false,
+      "reasoning_fallback_reason": null,
+      "reasoning_grounded": true
+    },
+    {
+      "image": "C:\\Users\\X\\Documents\\Codex\\2026-08-21\\visionguard-ai\\evaluation\\data\\ifiresmoke\\smoke_003.jpg",
+      "label": 0,
+      "source": "shahriar-5/IFireSmoke@22b3c06db783d3e75c74234faa511020912eac64",
+      "license": "CC-BY-4.0 (Hub card; archive README states MIT)",
+      "group": "ifiresmoke:FireDataV8_1_1920_jpg",
+      "ground_truth_available": true,
+      "ground_truth": [
+        {
+          "category": "smoke",
+          "bbox": {
+            "x1": 0.0,
+            "y1": 3.5,
+            "x2": 361.0,
+            "y2": 362.5
+          }
+        }
+      ],
+      "success": true,
+      "total_ms": 11169.08,
+      "prediction": 0,
+      "probability": 0.114431,
+      "classifier_available": true,
+      "classifier_inference_ms": 294.69,
+      "fusion_status": "no_fire_evidence",
+      "risk_level": "high",
+      "detections": [
+        {
+          "evidence_id": "ev-smoke-001",
+          "category": "smoke",
+          "label": "smoke",
+          "confidence": 0.7879,
+          "bbox": {
+            "x1": 17,
+            "y1": 2,
+            "x2": 349,
+            "y2": 385
+          },
+          "area_ratio": 0.7348,
+          "source": "ultralytics-yolo:fire-smoke-yolov8n-upstream-v1.0.0"
+        }
+      ],
+      "vision_fallback": false,
+      "agent_success": true,
+      "reasoning_used_llm": true,
+      "reasoning_fallback": false,
+      "reasoning_fallback_reason": null,
+      "reasoning_grounded": true
+    },
+    {
+      "image": "C:\\Users\\X\\Documents\\Codex\\2026-08-21\\visionguard-ai\\evaluation\\data\\ifiresmoke\\smoke_004.jpg",
+      "label": 0,
+      "source": "shahriar-5/IFireSmoke@22b3c06db783d3e75c74234faa511020912eac64",
+      "license": "CC-BY-4.0 (Hub card; archive README states MIT)",
+      "group": "ifiresmoke:FireDataV8_1_1485_jpg",
+      "ground_truth_available": true,
+      "ground_truth": [
+        {
+          "category": "smoke",
+          "bbox": {
+            "x1": 11.0,
+            "y1": 3.5,
+            "x2": 353.0,
+            "y2": 360.5
+          }
+        }
+      ],
+      "success": true,
+      "total_ms": 7685.52,
+      "prediction": 0,
+      "probability": 0.231399,
+      "classifier_available": true,
+      "classifier_inference_ms": 279.38,
+      "fusion_status": "no_fire_evidence",
+      "risk_level": "unknown",
+      "detections": [],
+      "vision_fallback": false,
+      "agent_success": true,
+      "reasoning_used_llm": true,
+      "reasoning_fallback": false,
+      "reasoning_fallback_reason": null,
+      "reasoning_grounded": true
+    },
+    {
+      "image": "C:\\Users\\X\\Documents\\Codex\\2026-08-21\\visionguard-ai\\evaluation\\data\\ifiresmoke\\smoke_005.jpg",
+      "label": 0,
+      "source": "shahriar-5/IFireSmoke@22b3c06db783d3e75c74234faa511020912eac64",
+      "license": "CC-BY-4.0 (Hub card; archive README states MIT)",
+      "group": "ifiresmoke:FireDataV8_1_2775_jpg",
+      "ground_truth_available": true,
+      "ground_truth": [
+        {
+          "category": "smoke",
+          "bbox": {
+            "x1": 45.5,
+            "y1": 15.0,
+            "x2": 399.5,
+            "y2": 372.0
+          }
+        }
+      ],
+      "success": true,
+      "total_ms": 7928.72,
+      "prediction": 0,
+      "probability": 0.216288,
+      "classifier_available": true,
+      "classifier_inference_ms": 302.56,
+      "fusion_status": "no_fire_evidence",
+      "risk_level": "unknown",
+      "detections": [],
+      "vision_fallback": false,
+      "agent_success": true,
+      "reasoning_used_llm": true,
+      "reasoning_fallback": false,
+      "reasoning_fallback_reason": null,
+      "reasoning_grounded": true
+    },
+    {
+      "image": "C:\\Users\\X\\Documents\\Codex\\2026-08-21\\visionguard-ai\\evaluation\\data\\pyro_sdis\\sample_001.jpg",
+      "label": 0,
+      "source": "fireviewer/fire-smoke-detection-corpus-v1@85ad763e6275537386f7eefdae5e3a18a55f1c71:pyro-sdis",
+      "license": "Apache-2.0",
+      "group": "pyro_sdis_a1e553e:force-06:courmettes-160:2024-04-03",
+      "ground_truth_available": true,
+      "ground_truth": [
+        {
+          "category": "smoke",
+          "bbox": {
+            "x1": 76.529,
+            "y1": 486.742,
+            "x2": 92.425,
+            "y2": 514.72
+          }
+        },
+        {
+          "category": "smoke",
+          "bbox": {
+            "x1": 1156.488,
+            "y1": 311.22,
+            "x2": 1219.643,
+            "y2": 339.024
+          }
+        }
+      ],
+      "success": true,
+      "total_ms": 7773.68,
+      "prediction": 0,
+      "probability": 0.125286,
+      "classifier_available": true,
+      "classifier_inference_ms": 566.35,
+      "fusion_status": "no_fire_evidence",
+      "risk_level": "unknown",
+      "detections": [],
+      "vision_fallback": false,
+      "agent_success": true,
+      "reasoning_used_llm": true,
+      "reasoning_fallback": false,
+      "reasoning_fallback_reason": null,
+      "reasoning_grounded": true
+    },
+    {
+      "image": "C:\\Users\\X\\Documents\\Codex\\2026-08-21\\visionguard-ai\\evaluation\\data\\pyro_sdis\\sample_002.jpg",
+      "label": 0,
+      "source": "fireviewer/fire-smoke-detection-corpus-v1@85ad763e6275537386f7eefdae5e3a18a55f1c71:pyro-sdis",
+      "license": "Apache-2.0",
+      "group": "pyro_sdis_a1e553e:force-06:cabanelle-125:2024-04-10",
+      "ground_truth_available": true,
+      "ground_truth": [
+        {
+          "category": "smoke",
+          "bbox": {
+            "x1": 422.311,
+            "y1": 351.726,
+            "x2": 549.242,
+            "y2": 401.521
+          }
+        }
+      ],
+      "success": true,
+      "total_ms": 7645.56,
+      "prediction": 0,
+      "probability": 0.281437,
+      "classifier_available": true,
+      "classifier_inference_ms": 358.13,
+      "fusion_status": "no_fire_evidence",
+      "risk_level": "medium",
+      "detections": [
+        {
+          "evidence_id": "ev-smoke-001",
+          "category": "smoke",
+          "label": "smoke",
+          "confidence": 0.377,
+          "bbox": {
+            "x1": 426,
+            "y1": 337,
+            "x2": 557,
+            "y2": 401
+          },
+          "area_ratio": 0.0091,
+          "source": "ultralytics-yolo:fire-smoke-yolov8n-upstream-v1.0.0"
+        }
+      ],
+      "vision_fallback": false,
+      "agent_success": true,
+      "reasoning_used_llm": true,
+      "reasoning_fallback": false,
+      "reasoning_fallback_reason": null,
+      "reasoning_grounded": true
+    },
+    {
+      "image": "C:\\Users\\X\\Documents\\Codex\\2026-08-21\\visionguard-ai\\evaluation\\data\\pyro_sdis\\sample_003.jpg",
+      "label": 0,
+      "source": "fireviewer/fire-smoke-detection-corpus-v1@85ad763e6275537386f7eefdae5e3a18a55f1c71:pyro-sdis",
+      "license": "Apache-2.0",
+      "group": "pyro_sdis_a1e553e:force-06:courmettes-160:2024-06-07",
+      "ground_truth_available": true,
+      "ground_truth": [
+        {
+          "category": "smoke",
+          "bbox": {
+            "x1": 397.235,
+            "y1": 369.482,
+            "x2": 490.632,
+            "y2": 418.634
+          }
+        }
+      ],
+      "success": true,
+      "total_ms": 5962.12,
+      "prediction": 0,
+      "probability": 0.255361,
+      "classifier_available": true,
+      "classifier_inference_ms": 615.87,
+      "fusion_status": "no_fire_evidence",
+      "risk_level": "unknown",
+      "detections": [],
+      "vision_fallback": false,
+      "agent_success": true,
+      "reasoning_used_llm": true,
+      "reasoning_fallback": false,
+      "reasoning_fallback_reason": null,
+      "reasoning_grounded": true
+    },
+    {
+      "image": "C:\\Users\\X\\Documents\\Codex\\2026-08-21\\visionguard-ai\\evaluation\\data\\pyro_sdis\\sample_004.jpg",
+      "label": 0,
+      "source": "fireviewer/fire-smoke-detection-corpus-v1@85ad763e6275537386f7eefdae5e3a18a55f1c71:pyro-sdis",
+      "license": "Apache-2.0",
+      "group": "pyro_sdis_a1e553e:force-06:courmettes-160:2024-01-09",
+      "ground_truth_available": true,
+      "ground_truth": [
+        {
+          "category": "smoke",
+          "bbox": {
+            "x1": 151.853,
+            "y1": 495.482,
+            "x2": 197.254,
+            "y2": 547.315
+          }
+        }
+      ],
+      "success": true,
+      "total_ms": 4795.1,
+      "prediction": 0,
+      "probability": 0.49362,
+      "classifier_available": true,
+      "classifier_inference_ms": 348.52,
+      "fusion_status": "no_fire_evidence",
+      "risk_level": "medium",
+      "detections": [
+        {
+          "evidence_id": "ev-smoke-001",
+          "category": "smoke",
+          "label": "smoke",
+          "confidence": 0.3404,
+          "bbox": {
+            "x1": 151,
+            "y1": 498,
+            "x2": 203,
+            "y2": 548
+          },
+          "area_ratio": 0.0028,
+          "source": "ultralytics-yolo:fire-smoke-yolov8n-upstream-v1.0.0"
+        }
+      ],
+      "vision_fallback": false,
+      "agent_success": true,
+      "reasoning_used_llm": true,
+      "reasoning_fallback": false,
+      "reasoning_fallback_reason": null,
+      "reasoning_grounded": true
+    },
+    {
+      "image": "C:\\Users\\X\\Documents\\Codex\\2026-08-21\\visionguard-ai\\evaluation\\data\\pyro_sdis\\sample_005.jpg",
+      "label": 0,
+      "source": "fireviewer/fire-smoke-detection-corpus-v1@85ad763e6275537386f7eefdae5e3a18a55f1c71:pyro-sdis",
+      "license": "Apache-2.0",
+      "group": "pyro_sdis_a1e553e:force-06:courmettes-160:2024-02-28",
+      "ground_truth_available": true,
+      "ground_truth": [
+        {
+          "category": "smoke",
+          "bbox": {
+            "x1": 640.129,
+            "y1": 478.308,
+            "x2": 695.185,
+            "y2": 499.954
+          }
+        }
+      ],
+      "success": true,
+      "total_ms": 4641.61,
+      "prediction": 0,
+      "probability": 0.245037,
+      "classifier_available": true,
+      "classifier_inference_ms": 570.84,
+      "fusion_status": "no_fire_evidence",
+      "risk_level": "medium",
+      "detections": [
+        {
+          "evidence_id": "ev-smoke-001",
+          "category": "smoke",
+          "label": "smoke",
+          "confidence": 0.1603,
+          "bbox": {
+            "x1": 591,
+            "y1": 462,
+            "x2": 699,
+            "y2": 503
+          },
+          "area_ratio": 0.0048,
+          "source": "ultralytics-yolo:fire-smoke-yolov8n-upstream-v1.0.0"
+        }
+      ],
+      "vision_fallback": false,
+      "agent_success": true,
+      "reasoning_used_llm": true,
+      "reasoning_fallback": false,
+      "reasoning_fallback_reason": null,
+      "reasoning_grounded": true
+    },
+    {
+      "image": "C:\\Users\\X\\Documents\\Codex\\2026-08-21\\visionguard-ai\\evaluation\\data\\pyro_sdis\\sample_011.jpg",
+      "label": 0,
+      "source": "fireviewer/fire-smoke-detection-corpus-v1@85ad763e6275537386f7eefdae5e3a18a55f1c71:pyro-sdis",
+      "license": "Apache-2.0",
+      "group": "pyro_sdis_a1e553e:force-06:courmettes-160:2024-02-16",
+      "ground_truth_available": true,
+      "ground_truth": [],
+      "success": true,
+      "total_ms": 7124.13,
+      "prediction": 0,
+      "probability": 0.250694,
+      "classifier_available": true,
+      "classifier_inference_ms": 349.08,
+      "fusion_status": "no_fire_evidence",
+      "risk_level": "unknown",
+      "detections": [],
+      "vision_fallback": false,
+      "agent_success": true,
+      "reasoning_used_llm": true,
+      "reasoning_fallback": false,
+      "reasoning_fallback_reason": null,
+      "reasoning_grounded": true
+    },
+    {
+      "image": "C:\\Users\\X\\Documents\\Codex\\2026-08-21\\visionguard-ai\\evaluation\\data\\pyro_sdis\\sample_012.jpg",
+      "label": 0,
+      "source": "fireviewer/fire-smoke-detection-corpus-v1@85ad763e6275537386f7eefdae5e3a18a55f1c71:pyro-sdis",
+      "license": "Apache-2.0",
+      "group": "pyro_sdis_a1e553e:force-06:courmettes-160:2024-02-18",
+      "ground_truth_available": true,
+      "ground_truth": [],
+      "success": true,
+      "total_ms": 7114.66,
+      "prediction": 0,
+      "probability": 0.26042,
+      "classifier_available": true,
+      "classifier_inference_ms": 369.72,
+      "fusion_status": "no_fire_evidence",
+      "risk_level": "unknown",
+      "detections": [],
+      "vision_fallback": false,
+      "agent_success": true,
+      "reasoning_used_llm": true,
+      "reasoning_fallback": false,
+      "reasoning_fallback_reason": null,
+      "reasoning_grounded": true
+    },
+    {
+      "image": "C:\\Users\\X\\Documents\\Codex\\2026-08-21\\visionguard-ai\\evaluation\\data\\pyro_sdis\\sample_013.jpg",
+      "label": 0,
+      "source": "fireviewer/fire-smoke-detection-corpus-v1@85ad763e6275537386f7eefdae5e3a18a55f1c71:pyro-sdis",
+      "license": "Apache-2.0",
+      "group": "pyro_sdis_a1e553e:force-06:courmettes-160:2024-02-01",
+      "ground_truth_available": true,
+      "ground_truth": [],
+      "success": true,
+      "total_ms": 6613.04,
+      "prediction": 0,
+      "probability": 0.316843,
+      "classifier_available": true,
+      "classifier_inference_ms": 320.94,
+      "fusion_status": "no_fire_evidence",
+      "risk_level": "unknown",
+      "detections": [],
+      "vision_fallback": false,
+      "agent_success": true,
+      "reasoning_used_llm": true,
+      "reasoning_fallback": false,
+      "reasoning_fallback_reason": null,
+      "reasoning_grounded": true
+    },
+    {
+      "image": "C:\\Users\\X\\Documents\\Codex\\2026-08-21\\visionguard-ai\\evaluation\\data\\pyro_sdis\\sample_014.jpg",
+      "label": 0,
+      "source": "fireviewer/fire-smoke-detection-corpus-v1@85ad763e6275537386f7eefdae5e3a18a55f1c71:pyro-sdis",
+      "license": "Apache-2.0",
+      "group": "pyro_sdis_a1e553e:force-06:courmettes-160:2024-02-27",
+      "ground_truth_available": true,
+      "ground_truth": [],
+      "success": true,
+      "total_ms": 7520.64,
+      "prediction": 0,
+      "probability": 0.145506,
+      "classifier_available": true,
+      "classifier_inference_ms": 533.11,
+      "fusion_status": "no_fire_evidence",
+      "risk_level": "medium",
+      "detections": [
+        {
+          "evidence_id": "ev-smoke-001",
+          "category": "smoke",
+          "label": "smoke",
+          "confidence": 0.5489,
+          "bbox": {
+            "x1": 0,
+            "y1": 377,
+            "x2": 707,
+            "y2": 641
+          },
+          "area_ratio": 0.2025,
+          "source": "ultralytics-yolo:fire-smoke-yolov8n-upstream-v1.0.0"
+        },
+        {
+          "evidence_id": "ev-smoke-002",
+          "category": "smoke",
+          "label": "smoke",
+          "confidence": 0.3754,
+          "bbox": {
+            "x1": 1008,
+            "y1": 419,
+            "x2": 1280,
+            "y2": 613
+          },
+          "area_ratio": 0.0573,
+          "source": "ultralytics-yolo:fire-smoke-yolov8n-upstream-v1.0.0"
+        }
+      ],
+      "vision_fallback": false,
+      "agent_success": true,
+      "reasoning_used_llm": true,
+      "reasoning_fallback": false,
+      "reasoning_fallback_reason": null,
+      "reasoning_grounded": true
+    },
+    {
+      "image": "C:\\Users\\X\\Documents\\Codex\\2026-08-21\\visionguard-ai\\evaluation\\data\\pyro_sdis\\sample_015.jpg",
+      "label": 0,
+      "source": "fireviewer/fire-smoke-detection-corpus-v1@85ad763e6275537386f7eefdae5e3a18a55f1c71:pyro-sdis",
+      "license": "Apache-2.0",
+      "group": "pyro_sdis_a1e553e:force-06:courmettes-275:2024-02-09",
+      "ground_truth_available": true,
+      "ground_truth": [],
+      "success": true,
+      "total_ms": 2769.56,
+      "prediction": 0,
+      "probability": 0.407468,
+      "classifier_available": true,
+      "classifier_inference_ms": 363.08,
+      "fusion_status": "no_fire_evidence",
+      "risk_level": "medium",
+      "detections": [
+        {
+          "evidence_id": "ev-smoke-001",
+          "category": "smoke",
+          "label": "smoke",
+          "confidence": 0.4954,
+          "bbox": {
+            "x1": 24,
+            "y1": 301,
+            "x2": 342,
+            "y2": 582
+          },
+          "area_ratio": 0.097,
+          "source": "ultralytics-yolo:fire-smoke-yolov8n-upstream-v1.0.0"
+        }
+      ],
+      "vision_fallback": false,
+      "agent_success": true,
+      "reasoning_used_llm": true,
+      "reasoning_fallback": false,
+      "reasoning_fallback_reason": null,
+      "reasoning_grounded": true
+    }
+  ],
+  "claim_boundary": "本报告仅适用于清单、模型版本、阈值、硬件和运行配置对应的本次测试。"
+}

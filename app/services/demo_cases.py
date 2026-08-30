@@ -1,22 +1,30 @@
+import base64
 from io import BytesIO
 
 from PIL import Image, ImageDraw
 
 from app.schemas import DemoCaseInfo
+from app.services.demo_assets import VERIFIED_FIRE_JPEG_B64, VERIFIED_SMOKE_JPEG_B64
 
 
 CASES = {
-    "synthetic-fire": DemoCaseInfo(
-        case_id="synthetic-fire",
-        name="合成明火候选案例",
-        description="用于演示火焰候选区域、检测框和证据链，不代表真实工业现场。",
+    "verified-fire": DemoCaseInfo(
+        case_id="verified-fire",
+        name="开放授权明火案例",
+        description="用于演示明火定位、多模型复核与证据链，不作为模型精度统计。",
         expected_signal="fire",
+        synthetic=False,
+        source_note="IFireSmoke固定验证样本 fire_002",
+        license="CC-BY-4.0",
     ),
-    "synthetic-smoke": DemoCaseInfo(
-        case_id="synthetic-smoke",
-        name="合成烟雾候选案例",
-        description="用于演示烟雾候选区域和不确定性提示，不代表真实工业现场。",
+    "verified-smoke": DemoCaseInfo(
+        case_id="verified-smoke",
+        name="开放授权烟雾案例",
+        description="用于演示烟雾定位、不确定性提示和人工复核边界，不作为模型精度统计。",
         expected_signal="smoke",
+        synthetic=False,
+        source_note="IFireSmoke固定验证样本 smoke_002",
+        license="CC-BY-4.0",
     ),
     "synthetic-clear": DemoCaseInfo(
         case_id="synthetic-clear",
@@ -28,8 +36,13 @@ CASES = {
 
 
 def render_demo_case(case_id: str) -> bytes:
-    if case_id not in CASES:
+    legacy_case_ids = {"synthetic-fire", "synthetic-smoke"}
+    if case_id not in CASES and case_id not in legacy_case_ids:
         raise KeyError(case_id)
+    if case_id == "verified-fire":
+        return base64.b64decode(VERIFIED_FIRE_JPEG_B64)
+    if case_id == "verified-smoke":
+        return base64.b64decode(VERIFIED_SMOKE_JPEG_B64)
     image = Image.new("RGB", (720, 460), color=(22, 34, 49))
     draw = ImageDraw.Draw(image)
     draw.rectangle((70, 75, 650, 400), fill=(35, 53, 70), outline=(70, 105, 130), width=3)
@@ -45,4 +58,3 @@ def render_demo_case(case_id: str) -> bytes:
     buffer = BytesIO()
     image.save(buffer, format="PNG")
     return buffer.getvalue()
-

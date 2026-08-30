@@ -1,21 +1,88 @@
 import asyncio
+from io import BytesIO
+from pathlib import Path
 
 import httpx
+import pytest
+from fastapi import HTTPException, UploadFile
 
+from app.api.routes import _read_limited_upload
 from app.main import app
-from app.services.demo_cases import render_demo_case
+from app.services.demo_cases import CASES, render_demo_case
 from app.services.store import AnalysisStore
 from app.services.vision.demo import DemoColorDetector
 
 
+def test_competition_ui_exposes_core_ai_chain_and_human_review_boundary():
+    root = Path(__file__).resolve().parents[1]
+    html = (root / "app" / "static" / "index.html").read_text(encoding="utf-8")
+    script = (root / "app" / "static" / "app.js").read_text(encoding="utf-8")
+    styles = (root / "app" / "static" / "styles.css").read_text(encoding="utf-8")
+    assert "专业视觉取证" in html
+    assert "Agent 任务编排" in html
+    assert "安全知识增强" in html
+    assert "需人工复核" in html
+    assert "riskCard.dataset.level" in script
+    assert "align-items: start" in styles
+    assert "运行赛前环境自检" in html
+    assert "runReadinessCheck" in script
+    assert "下载标注证据图" in html
+    assert "evidenceCanvas.toDataURL" in script
+
+
+def test_readiness_endpoint_reports_explicit_degradation_without_hiding_core_checks():
+    async def run():
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            return await client.get("/api/v1/readiness")
+
+    response = asyncio.run(run())
+    assert response.status_code == 200
+    body = response.json()
+    checks = {item["key"]: item for item in body["checks"]}
+    assert body["status"] == "degraded"
+    assert checks["professional_vision"]["status"] == "degraded"
+    assert checks["knowledge_base"]["status"] == "ready"
+    assert checks["agent_tools"]["status"] == "ready"
+    assert checks["demo_cases"]["status"] == "ready"
+    assert checks["report_exports"]["status"] == "ready"
+
+
+def test_public_runtime_metadata_and_security_headers_are_exposed():
+    async def run():
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            return await client.get("/api/v1/health")
+
+    response = asyncio.run(run())
+    assert response.status_code == 200
+    assert response.json()["deployment_profile"] in {"local", "public-demo", "competition"}
+    assert response.headers["x-content-type-options"] == "nosniff"
+    assert response.headers["x-frame-options"] == "DENY"
+    assert response.headers["referrer-policy"] == "no-referrer"
+    assert response.headers["cache-control"] == "no-store"
+    assert "default-src 'self'" in response.headers["content-security-policy"]
+
+
+def test_upload_reader_stops_when_payload_exceeds_limit():
+    async def run():
+        upload = UploadFile(filename="too-large.png", file=BytesIO(b"x" * 17))
+        return await _read_limited_upload(upload, max_bytes=16)
+
+    with pytest.raises(HTTPException) as exc_info:
+        asyncio.run(run())
+    assert exc_info.value.status_code == 413
+
+
 def test_standard_demo_cases_exercise_fire_smoke_and_review_paths():
     detector = DemoColorDetector()
-    fire = asyncio.run(detector.detect(render_demo_case("synthetic-fire"), "fire.png"))
-    smoke = asyncio.run(detector.detect(render_demo_case("synthetic-smoke"), "smoke.png"))
     clear = asyncio.run(detector.detect(render_demo_case("synthetic-clear"), "clear.png"))
-    assert "fire" in {item.category for item in fire.detections}
-    assert "smoke" in {item.category for item in smoke.detections}
+    assert render_demo_case("verified-fire").startswith(b"\xff\xd8")
+    assert render_demo_case("verified-smoke").startswith(b"\xff\xd8")
     assert clear.detections == []
+    assert CASES["verified-fire"].expected_signal == "fire"
+    assert CASES["verified-smoke"].expected_signal == "smoke"
+    assert CASES["verified-smoke"].license == "CC-BY-4.0"
 
 
 def test_stage4_metrics_records_and_report_exports():
@@ -34,7 +101,7 @@ def test_stage4_metrics_records_and_report_exports():
             html = await client.get(f"/api/v1/analyses/{request_id}/report.html")
             json_report = await client.get(f"/api/v1/analyses/{request_id}/report.json")
             cases = await client.get("/api/v1/demo-cases")
-            case_image = await client.get("/api/v1/demo-cases/synthetic-smoke/image")
+            case_image = await client.get("/api/v1/demo-cases/verified-smoke/image")
             return analysis, metrics, records, html, json_report, cases, case_image
 
     analysis, metrics, records, html, json_report, cases, case_image = asyncio.run(run())
@@ -42,11 +109,79 @@ def test_stage4_metrics_records_and_report_exports():
     assert metrics.json()["total_analyses"] >= 1
     assert records.json()[0]["task"] == "联系 [phone] 并检查合成案例"
     assert "VisionGuard AI 工业安全视觉风险辅助报告" in html.text
+    assert "中华人民共和国消防法" in html.text
+    assert "适用边界" in html.text
+    assert "https://wb.flk.npc.gov.cn/" in html.text
+    assert "Agent审计轨迹" in html.text
+    assert "模型阈值" in html.text
+    assert "回退状态" in html.text
+    assert "步骤耗时" in html.text
+    assert "结论须由现场安全人员复核" in html.text
+    assert "可引用视觉证据" in html.text
+    assert "Agent任务规划" in html.text
+    assert "Agent专业工具" in html.text
     assert json_report.headers["content-type"].startswith("application/json")
     assert len(cases.json()) == 3
-    assert case_image.headers["x-visionguard-synthetic"] == "true"
+    assert case_image.headers["x-visionguard-synthetic"] == "false"
+    assert case_image.headers["content-type"] == "image/jpeg"
+    assert case_image.headers["x-visionguard-case"] == "verified-smoke"
+    assert cases.json()[1]["source_note"].startswith("IFireSmoke")
 
 
 def test_store_redacts_credentials_and_identifiers():
     store = AnalysisStore()
     assert store._redact("a@example.com sk-123456789 13800138000") == "[email] [api-key] [phone]"
+
+
+def test_follow_up_qa_reuses_existing_evidence_without_redetection():
+    async def run():
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            analysis = await client.post(
+                "/api/v1/analyze",
+                files={
+                    "image": (
+                        "synthetic-fire.png",
+                        render_demo_case("synthetic-fire"),
+                        "image/png",
+                    )
+                },
+                data={"task": "分析火灾风险"},
+            )
+            request_id = analysis.json()["request_id"]
+            answer = await client.post(
+                f"/api/v1/analyses/{request_id}/ask",
+                json={"question": "为什么判断为高风险？"},
+            )
+            return request_id, answer
+
+    request_id, answer = asyncio.run(run())
+    assert answer.status_code == 200
+    body = answer.json()
+    assert body["request_id"] == request_id
+    assert "判断依据" in body["answer"]
+    assert body["reasoning"]["evidence_ids"] == ["ev-fire-001"]
+    assert [step["tool"] for step in body["agent_trace"]] == [
+        "context.retrieve",
+        "reasoning.explain",
+    ]
+    assert "未重新执行视觉检测" in body["agent_trace"][0]["summary"]
+    assert "ev-fire-001" in body["agent_trace"][0]["references"]
+    assert body["agent_trace"][1]["duration_ms"] >= 0
+
+
+def test_follow_up_qa_rejects_expired_or_invalid_requests():
+    async def run():
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            missing = await client.post(
+                "/api/v1/analyses/not-found/ask", json={"question": "为什么？"}
+            )
+            invalid = await client.post(
+                "/api/v1/analyses/not-found/ask", json={"question": "?"}
+            )
+            return missing, invalid
+
+    missing, invalid = asyncio.run(run())
+    assert missing.status_code == 404
+    assert invalid.status_code == 422

@@ -21,7 +21,10 @@ class FallbackReasoner:
             try:
                 return await self.primary.explain(task, vision, knowledge, risk)
             except Exception as exc:
+                detail = str(exc).strip().replace("\n", " ")[:160]
                 reason = f"大模型推理不可用：{type(exc).__name__}"
+                if detail:
+                    reason += f"：{detail}"
         else:
             reason = self.startup_reason or "大模型推理未配置"
         result = await self.fallback.explain(task, vision, knowledge, risk)
@@ -29,4 +32,3 @@ class FallbackReasoner:
         result.fallback_reason = reason
         result.uncertainties.insert(0, f"推理环节已切换为确定性回退：{reason}")
         return result
-

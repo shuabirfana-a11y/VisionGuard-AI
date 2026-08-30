@@ -26,7 +26,7 @@ def _file_digest(path: Path) -> str:
     with path.open("rb") as stream:
         for chunk in iter(lambda: stream.read(1024 * 1024), b""):
             digest.update(chunk)
-    return digest.hexdigest()[:12]
+    return digest.hexdigest()
 
 
 class YoloVisionDetector:
@@ -37,6 +37,7 @@ class YoloVisionDetector:
         model_path: str,
         *,
         model_version: str = "",
+        expected_sha256: str = "",
         confidence_threshold: float = 0.35,
         iou_threshold: float = 0.45,
         device: str = "auto",
@@ -47,6 +48,12 @@ class YoloVisionDetector:
         self.path = Path(model_path)
         if model is None and not self.path.is_file():
             raise RuntimeError(f"YOLO 模型文件不存在: {self.path}")
+        full_digest = _file_digest(self.path) if self.path.is_file() else None
+        normalized_expected = expected_sha256.strip().lower()
+        if normalized_expected and full_digest != normalized_expected:
+            raise RuntimeError(
+                f"YOLO 模型SHA-256校验失败: expected={normalized_expected}, actual={full_digest}"
+            )
         if model is None:
             try:
                 from ultralytics import YOLO
@@ -55,10 +62,23 @@ class YoloVisionDetector:
             model = YOLO(str(self.path))
         self.model = model
         self.model_version = model_version or self.path.stem or "configured-model"
-        self.model_digest = _file_digest(self.path) if self.path.is_file() else None
+        self.model_digest = full_digest[:12] if full_digest else None
         self.confidence_threshold = confidence_threshold
         self.iou_threshold = iou_threshold
         self.device = device
+
+    async def start(self) -> None:
+        """Warm model kernels before the first judge-facing request."""
+        predict_args: dict[str, Any] = {
+            "source": Image.new("RGB", (640, 640), color=(24, 31, 40)),
+            "conf": self.confidence_threshold,
+            "iou": self.iou_threshold,
+            "verbose": False,
+        }
+        if self.device != "auto":
+            predict_args["device"] = self.device
+        for _ in range(2):
+            self.model.predict(**predict_args)
 
     async def detect(self, image_bytes: bytes, file_name: str) -> VisionResult:
         try:

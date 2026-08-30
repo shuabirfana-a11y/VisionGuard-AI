@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: visionguard-ai
+    runtime: docker
+    plan: free
+    healthCheckPath: /api/v1/health
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: DEPLOYMENT_PROFILE
+        value: public-demo
+      - key: VISION_BACKEND
+        value: demo
+      - key: VISION_FALLBACK_ENABLED
+        value: "true"
+      - key: REASONING_BACKEND
+        value: deterministic
+      - key: FIRE_CLASSIFIER_ENABLED
+        value: "false"
+      - key: MAX_CONCURRENT_ANALYSES
+        value: "2"
+      - key: ANALYSIS_QUEUE_TIMEOUT_SECONDS
+        value: "3"

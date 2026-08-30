@@ -1,0 +1,116 @@
+{
+  "project": "VisionGuard AI",
+  "version": "0.12.0",
+  "verified_at": "2026-08-22",
+  "hardware": {
+    "cpu": "AMD Ryzen 9 8940HX",
+    "physical_cores": 16,
+    "logical_processors": 32,
+    "memory_gb": 15.2,
+    "accelerator": "NVIDIA GeForce RTX 5060 Laptop GPU via DirectML"
+  },
+  "dataset": {
+    "capability_samples": 80,
+    "full_chain_samples": 20,
+    "composition": {
+      "fire": 30,
+      "smoke": 40,
+      "negative": 10
+    },
+    "sources": [
+      "shahriar-5/IFireSmoke@22b3c06db783d3e75c74234faa511020912eac64",
+      "fireviewer/fire-smoke-detection-corpus-v1@85ad763e6275537386f7eefdae5e3a18a55f1c71:pyro-sdis"
+    ],
+    "selection": "fixed hash selection with source-group deduplication; no model-result cherry-picking"
+  },
+  "yolo_validation_selected_profile": {
+    "confidence_threshold": 0.1,
+    "nms_iou": 0.3,
+    "evaluation_iou": 0.5,
+    "image_level_fire": {
+      "precision": 0.9259259259,
+      "recall": 0.8333333333,
+      "f1": 0.8771929825
+    },
+    "image_level_smoke": {
+      "precision": 0.756097561,
+      "recall": 0.775,
+      "f1": 0.7654320988
+    },
+    "box_level_overall": {
+      "precision": 0.6493506494,
+      "recall": 0.6756756757,
+      "f1": 0.6622516556
+    },
+    "boundary": "threshold selected on this external validation set; requires a new unseen test set for final generalization claims"
+  },
+  "external_fire_classifier_validation": {
+    "samples": 80,
+    "accuracy": 0.925,
+    "precision": 0.8333333333,
+    "recall": 1.0,
+    "f1": 0.9090909091,
+    "tp": 30,
+    "fp": 6,
+    "fn": 0,
+    "tn": 44,
+    "cpu_throughput_images_per_second": 0.1047657163,
+    "boundary": "classifier training-image provenance is incomplete; call this external fixed-set validation, not proven zero-overlap testing"
+  },
+  "full_chain_final_profile": {
+    "samples": 20,
+    "concurrency": 4,
+    "classifier_worker_count": 1,
+    "classifier_device": "dml",
+    "startup_preheated": true,
+    "request_success_rate": 1.0,
+    "agent_success_rate": 1.0,
+    "vision_fallback_count": 0,
+    "classifier_unavailable_count": 0,
+    "classifier_accuracy": 1.0,
+    "classifier_precision": 1.0,
+    "classifier_recall": 1.0,
+    "classifier_f1": 1.0,
+    "latency_ms": {
+      "mean": 1015.0165,
+      "median": 1023.75,
+      "p95": 1433.9565,
+      "maximum": 1461.25
+    }
+  },
+  "full_chain_local_llm_profile": {
+    "samples": 20,
+    "concurrency": 4,
+    "reasoning_runtime": "llama.cpp b10581 Vulkan",
+    "reasoning_model": "Qwen2.5-1.5B-Instruct-GGUF Q4_K_M",
+    "request_success_rate": 1.0,
+    "agent_success_rate": 1.0,
+    "llm_usage_rate": 1.0,
+    "grounded_reasoning_rate": 1.0,
+    "reasoning_fallback_count": 0,
+    "vision_fallback_count": 0,
+    "classifier_unavailable_count": 0,
+    "latency_ms": {
+      "mean": 7287.104,
+      "median": 7322.385,
+      "p95": 11171.0495,
+      "maximum": 11208.47
+    },
+    "source_report": "evaluation/full_chain_results_local_llm_v4.json"
+  },
+  "performance_improvement": {
+    "cpu_single_worker_mean_ms": 34917.0055,
+    "cpu_four_worker_mean_ms": 10884.558,
+    "directml_preheated_mean_ms": 1015.0165,
+    "directml_vs_four_cpu_mean_reduction": 0.906748,
+    "directml_vs_four_cpu_p95_reduction": 0.892097
+  },
+  "knowledge_retrieval": {
+    "method": "category-constrained-tfidf-rag-v1",
+    "category_constraint": true,
+    "returns_retrieval_score": true,
+    "returns_matched_terms": true,
+    "returns_source_and_applicability": true
+  },
+  "claim_boundary": "Results apply only to the stated manifests, models, thresholds, hardware and date. The system is an auxiliary analysis tool and not an autonomous safety-control system."
+}
