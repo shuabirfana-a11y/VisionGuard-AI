@@ -21,6 +21,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from app.services.evaluation import summarize_runs
+from app.services.validation import assess_analysis_contract
 
 
 def load_manifest(path: Path) -> list[dict[str, Any]]:
@@ -92,22 +93,8 @@ async def evaluate(
                     response.raise_for_status()
                     body = response.json()
                     classifier = body["vision"].get("fire_classification") or {}
-                    trace = body.get("agent_trace") or []
                     reasoning = body.get("reasoning") or {}
-                    evidence_ids = {
-                        item.get("evidence_id")
-                        for item in body["vision"].get("detections") or []
-                    }
-                    if classifier.get("available"):
-                        evidence_ids.add(classifier.get("evidence_id"))
-                    knowledge_ids = {
-                        item.get("rule_id") for item in body.get("knowledge") or []
-                    }
-                    grounded = (
-                        set(reasoning.get("evidence_ids") or []).issubset(evidence_ids)
-                        and set(reasoning.get("knowledge_ids") or []).issubset(knowledge_ids)
-                        and bool(reasoning.get("safety_boundary"))
-                    )
+                    contract = assess_analysis_contract(body)
                     record.update(
                         {
                             "success": True,
@@ -123,13 +110,15 @@ async def evaluate(
                             "risk_level": body["risk"]["overall_level"],
                             "detections": body["vision"].get("detections") or [],
                             "vision_fallback": bool(body["vision"]["inference"].get("fallback_used")),
-                            "agent_success": bool(trace) and all(
-                                step.get("status") == "completed" for step in trace
-                            ),
+                            **contract,
                             "reasoning_used_llm": bool(reasoning.get("used_llm")),
                             "reasoning_fallback": bool(reasoning.get("fallback_used")),
                             "reasoning_fallback_reason": reasoning.get("fallback_reason"),
-                            "reasoning_grounded": grounded,
+                            "reasoning_explanation": reasoning.get("explanation"),
+                            "reasoning_evidence_ids": reasoning.get("evidence_ids") or [],
+                            "reasoning_knowledge_ids": reasoning.get("knowledge_ids") or [],
+                            "reasoning_safety_boundary": reasoning.get("safety_boundary"),
+                            "inference_metadata": body["vision"]["inference"],
                         }
                     )
                 except Exception as exc:
@@ -158,6 +147,12 @@ def main() -> int:
         "base_url": args.base_url,
         "manifest": str(args.manifest.resolve()),
         "concurrency": args.concurrency,
+        "contract_version": "trace-and-reference-v2",
+        "metric_definitions": {
+            "agent_success_rate": "All six required steps completed exactly once and in order; not a task-understanding score.",
+            "grounded_reasoning_rate": "Required references are valid and explanation/boundary are nonempty; not semantic correctness or expert approval.",
+            "latency_ms": "Successful requests only; excludes time waiting for the client concurrency semaphore.",
+        },
         "summary": summarize_runs(records),
         "records": records,
         "claim_boundary": "本报告仅适用于清单、模型版本、阈值、硬件和运行配置对应的本次测试。",

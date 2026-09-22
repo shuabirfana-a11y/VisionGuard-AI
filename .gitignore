@@ -6,6 +6,7 @@ __pycache__/
 .env
 .tmp/
 tmp/
+browser-artifacts/
 data/uploads/
 models/*.pt
 models/

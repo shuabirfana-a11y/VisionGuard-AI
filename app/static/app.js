@@ -10,6 +10,18 @@ let sourceImage = null;
 let latestVision = null;
 let latestRequestId = null;
 let sourceUrl = null;
+let sourceVersion = 0;
+let analysisVersion = 0;
+let caseVersion = 0;
+let imageReady = Promise.resolve(false);
+let analysisController = null;
+let questionController = null;
+let caseController = null;
+let waitingTimer = null;
+const analyzeButton = document.querySelector("#analyze-button");
+const cancelButton = document.querySelector("#cancel-analysis");
+const imageFeedback = document.querySelector("#image-feedback");
+const REQUEST_TIMEOUT_MS = 120000;
 
 loadDemoCases();
 updateMetrics();
@@ -54,63 +66,171 @@ async function loadRuntimeProfile() {
     const health = await response.json();
     const capabilities = health.capabilities || {};
     const vision = health.vision_backend === "yolo"
-      ? "专业YOLO视觉定位"
-      : "Demo视觉回退";
+      ? "已配置专业视觉检测，实际运行情况以本次结果为准"
+      : "当前为演示视觉模式，结果仅用于体验操作流程，不能作为专业检测结论";
     const reasoning = capabilities.llm_reasoning === "configured"
-      ? `大模型可信推理（${capabilities.llm_model || "已配置"}）`
-      : "确定性可信推理";
-    const classifier = capabilities.fire_classifier_runtime?.state === "ready"
-      ? "三路火情确认已就绪"
-      : "火情确认分支未就绪";
-    const profileLabels = {"public-demo": "公开评委演示", "competition": "比赛完整配置", "local": "本地运行"};
-    const profile = profileLabels[health.deployment_profile] || health.deployment_profile;
-    notice.textContent = `${profile} ${health.version}：${vision} · ${classifier} · ${reasoning} · 可解释混合RAG。所有结论仍须现场人员复核。`;
+      ? "已配置大模型解释"
+      : "当前使用规则解释";
+    notice.textContent = vision + "。" + reasoning + "。结论须由现场人员复核。";
     notice.classList.toggle("runtime-ready", health.vision_backend === "yolo");
   } catch (error) {
     notice.textContent = `无法读取运行配置：${error.message}`;
   }
 }
 
-imageInput.addEventListener("change", () => {
-  const file = imageInput.files[0];
-  if (!file) return;
-  evidenceDownload.disabled = true;
-  if (sourceUrl) URL.revokeObjectURL(sourceUrl);
-  sourceUrl = URL.createObjectURL(file);
+function setStatus(text, state = "idle") {
+  statusEl.textContent = text;
+  statusEl.className = "status " + state;
+}
+
+function stopCaseLoading() {
+  caseVersion += 1;
+  caseController?.abort();
+  caseController = null;
+}
+
+function resetAnalysis(message = "图片已准备好，可以开始分析。") {
+  analysisVersion += 1;
+  analysisController?.abort();
+  questionController?.abort();
+  analysisController = null;
+  questionController = null;
+  clearInterval(waitingTimer);
+  waitingTimer = null;
   latestVision = null;
-  sourceImage = new Image();
-  sourceImage.onload = () => {
-    evidenceStage.hidden = false;
-    drawEvidence();
-  };
-  sourceImage.src = sourceUrl;
+  latestRequestId = null;
+  resultEl.hidden = true;
+  emptyEl.hidden = false;
+  emptyEl.textContent = message;
+  evidenceDownload.disabled = true;
+  document.querySelector("#html-report").removeAttribute("href");
+  document.querySelector("#json-report").removeAttribute("href");
+  document.querySelector("#json-report").removeAttribute("download");
+  document.querySelector("#qa-answer").hidden = true;
+  document.querySelector("#qa-answer").textContent = "";
+  document.querySelector("#qa-question").value = "";
+  document.querySelector("#qa-form button").disabled = false;
+  document.querySelector(".result-panel").setAttribute("aria-busy", "false");
+  cancelButton.hidden = true;
+  analyzeButton.disabled = !sourceImage;
+  analyzeButton.textContent = "开始风险分析";
+  setStatus(sourceImage ? "待分析" : "等待图片");
+  drawEvidence();
+}
+
+function loadSelectedImage(file) {
+  const version = ++sourceVersion;
+  sourceImage = null;
+  resetAnalysis("正在准备图片……");
+  evidenceStage.hidden = true;
+  if (sourceUrl) URL.revokeObjectURL(sourceUrl);
+  sourceUrl = null;
+  if (!file) {
+    imageFeedback.textContent = "请先选择一张图片。";
+    emptyEl.textContent = "选择图片后开始分析。";
+    return Promise.resolve(false);
+  }
+  const message = !["image/jpeg", "image/png", "image/webp"].includes(file.type)
+    ? "仅支持 JPEG、PNG 或 WebP 图片，请重新选择。"
+    : file.size > 10 * 1024 * 1024 ? "图片超过 10 MB，请压缩后重新选择。"
+    : file.size === 0 ? "图片为空，请重新选择。" : null;
+  if (message) {
+    imageFeedback.textContent = message;
+    emptyEl.textContent = message;
+    setStatus("图片不可用", "error");
+    return Promise.resolve(false);
+  }
+  imageFeedback.textContent = "正在读取图片……";
+  const image = new Image();
+  sourceUrl = URL.createObjectURL(file);
+  return new Promise(resolve => {
+    image.onload = () => {
+      if (version !== sourceVersion) { resolve(false); return; }
+      sourceImage = image;
+      evidenceStage.hidden = false;
+      imageFeedback.textContent = file.name + " · " + image.naturalWidth + " × " + image.naturalHeight + " 像素";
+      emptyEl.textContent = "图片已准备好，可以开始分析。";
+      analyzeButton.disabled = false;
+      setStatus("待分析");
+      drawEvidence();
+      resolve(true);
+    };
+    image.onerror = () => {
+      if (version === sourceVersion) {
+        imageFeedback.textContent = "无法读取这张图片，请换一张完整的图片重试。";
+        emptyEl.textContent = imageFeedback.textContent;
+        setStatus("图片不可用", "error");
+      }
+      resolve(false);
+    };
+    image.src = sourceUrl;
+  });
+}
+
+imageInput.addEventListener("change", () => {
+  stopCaseLoading();
+  imageReady = loadSelectedImage(imageInput.files[0]);
 });
+
+document.querySelector("#task").addEventListener("input", () => {
+  if (latestRequestId || analysisController) {
+    resetAnalysis("核查要求已更改，请重新分析当前图片。");
+  }
+});
+
+cancelButton.addEventListener("click", () => {
+  resetAnalysis("已停止等待本次结果，可修改任务后重新分析。服务器可能仍在完成原任务。");
+});
+
+async function responseData(response, defaultMessage) {
+  let data;
+  try { data = await response.json(); }
+  catch (_) { throw new Error("服务返回异常，请稍后重试。"); }
+  if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : defaultMessage);
+  return data;
+}
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
-  const button = form.querySelector("button");
-  button.disabled = true;
-  button.textContent = "Agent 正在编排视觉、知识与推理工具…";
-  statusEl.textContent = "Agent 分析中";
-  statusEl.className = "status running";
+  const version = sourceVersion;
+  if (!await imageReady || version !== sourceVersion || !sourceImage || analysisController) return;
+  resetAnalysis();
+  const run = analysisVersion;
+  const controller = new AbortController();
+  analysisController = controller;
+  const started = Date.now();
+  analyzeButton.disabled = true;
+  analyzeButton.textContent = "正在分析……";
+  cancelButton.hidden = false;
+  document.querySelector(".result-panel").setAttribute("aria-busy", "true");
+  setStatus("正在分析", "running");
+  emptyEl.textContent = "正在分析当前图片，完成后会显示结果。";
+  waitingTimer = setInterval(() => {
+    if (run === analysisVersion) emptyEl.textContent = "正在分析，已等待 " + Math.floor((Date.now() - started) / 1000) + " 秒。可以停止等待，或继续等候结果。";
+  }, 1000);
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   const payload = new FormData(form);
   try {
-    const response = await fetch("/api/v1/analyze", { method: "POST", body: payload });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.detail || "分析失败");
+    const response = await fetch("/api/v1/analyze", { method: "POST", body: payload, signal: controller.signal });
+    const data = await responseData(response, "分析未完成，请重试。");
+    if (run !== analysisVersion || version !== sourceVersion) return;
     renderResult(data);
     updateMetrics();
-    statusEl.textContent = "分析完成";
-    statusEl.className = "status done";
+    setStatus("分析完成", "done");
   } catch (error) {
-    emptyEl.hidden = false;
-    resultEl.hidden = true;
-    emptyEl.textContent = error.message;
-    statusEl.textContent = "任务失败";
-    statusEl.className = "status error";
+    if (run !== analysisVersion || version !== sourceVersion) return;
+    resetAnalysis(error.name === "AbortError" ? "等待超时，请检查服务状态后重试。" : error.message);
+    setStatus("未完成，可重试", "error");
   } finally {
-    button.disabled = false;
-    button.textContent = "启动 VisionGuard Agent";
+    clearTimeout(timeout);
+    if (run === analysisVersion) {
+      clearInterval(waitingTimer);
+      analysisController = null;
+      analyzeButton.disabled = !sourceImage;
+      analyzeButton.textContent = "开始风险分析";
+      cancelButton.hidden = true;
+      document.querySelector(".result-panel").setAttribute("aria-busy", "false");
+    }
   }
 });
 
@@ -118,6 +238,14 @@ function renderResult(data) {
   latestRequestId = data.request_id;
   emptyEl.hidden = true;
   resultEl.hidden = false;
+  document.querySelector("#result-context").textContent = "本次任务：" + data.task;
+  const modeNotice = document.querySelector("#result-notice");
+  const notices = [];
+  if (data.vision.inference.backend !== "yolo" || data.vision.inference.fallback_used) notices.push("本次使用演示视觉模式，检测结果不能作为专业模型效果证明。");
+  if (data.reasoning.fallback_used) notices.push("解释服务未完成，本次改用规则解释。");
+  if (data.vision.fire_classification && !data.vision.fire_classification.available) notices.push("火情复核模型不可用，当前缺少该分支的确认。");
+  modeNotice.textContent = notices.join(" ");
+  modeNotice.hidden = notices.length === 0;
   const riskLabels = {critical: "极高", high: "高", medium: "中", low: "低", unknown: "待核查"};
   const riskCard = document.querySelector(".risk-card");
   riskCard.dataset.level = data.risk.overall_level;
@@ -132,7 +260,7 @@ function renderResult(data) {
     <div><span>视觉证据</span><b>${visualEvidenceCount}</b><small>条可引用证据</small></div>
     <div><span>知识依据</span><b>${data.knowledge.length}</b><small>条来源记录</small></div>
     <div><span>Agent 工具</span><b>${toolStepCount}</b><small>个专业工具</small></div>
-    <div><span>回退次数</span><b>${fallbackCount}</b><small>${fallbackCount ? "已明确标注" : "完整专业链路"}</small></div>`;
+    <div><span>回退次数</span><b>${fallbackCount}</b><small>${fallbackCount ? "已明确标注" : "未发生回退"}</small></div>`;
   const plan = data.agent_plan;
   document.querySelector("#agent-plan").innerHTML = `
     <div class="plan-heading"><span>Agent 任务规划</span><b>${escapeHtml(plan.intent)}</b></div>
@@ -142,7 +270,7 @@ function renderResult(data) {
     <small>安全约束：${escapeHtml(plan.safety_constraints.join("；"))}</small>`;
   latestVision = data.vision;
   drawEvidence();
-  evidenceDownload.disabled = false;
+  evidenceDownload.disabled = !sourceImage || !sourceImage.complete;
   const inference = data.vision.inference;
   const fallback = inference.fallback_used
     ? `<span class="fallback-badge">Demo回退：${escapeHtml(inference.fallback_reason || "未说明")}</span>`
@@ -167,7 +295,7 @@ function renderResult(data) {
   const classifierCard = classifier
     ? classifier.available
       ? `<div class="evidence classifier-evidence">
-          <b>高精度整图火情确认</b>
+          <b>整图火情复核</b>
           <div>${classifier.prediction ? "判断存在可见火焰" : "未确认可见火焰"} · 概率 ${(classifier.probability * 100).toFixed(1)}%</div>
           <div>阈值 ${(classifier.threshold * 100).toFixed(1)}% · 不提供检测框</div>
           <small>证据编号 ${escapeHtml(classifier.evidence_id)} · ${escapeHtml(classifier.model_version)} · ${Number(classifier.inference_ms).toFixed(1)} ms</small>
@@ -227,36 +355,48 @@ evidenceDownload.addEventListener("click", () => {
   if (!sourceImage || !latestVision || evidenceDownload.disabled) return;
   const link = document.createElement("a");
   link.download = `visionguard-evidence-${latestRequestId || "analysis"}.png`;
-  link.href = evidenceCanvas.toDataURL("image/png");
+  const exportCanvas = document.createElement("canvas");
+  paintEvidence(exportCanvas, sourceImage.naturalWidth, sourceImage.naturalHeight);
+  link.href = exportCanvas.toDataURL("image/png");
   link.click();
 });
 
 document.querySelector("#qa-form").addEventListener("submit", async event => {
   event.preventDefault();
-  if (!latestRequestId) return;
+  if (!latestRequestId || questionController) return;
+  const run = analysisVersion;
+  const requestId = latestRequestId;
+  const controller = new AbortController();
+  questionController = controller;
   const question = document.querySelector("#qa-question").value.trim();
   const answer = document.querySelector("#qa-answer");
   const button = event.currentTarget.querySelector("button");
   button.disabled = true;
   answer.hidden = false;
-  answer.textContent = "Agent 正在基于本次证据回答……";
+  answer.textContent = "正在根据这次结果核对你的问题……";
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
-    const response = await fetch(`/api/v1/analyses/${encodeURIComponent(latestRequestId)}/ask`, {
+    const response = await fetch(`/api/v1/analyses/${encodeURIComponent(requestId)}/ask`, {
       method: "POST",
+      signal: controller.signal,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ question })
     });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.detail || "追问失败");
+    const data = await responseData(response, "暂时无法回答，请重试。");
+    if (run !== analysisVersion || requestId !== latestRequestId) return;
     answer.innerHTML = `
       <p>${escapeHtml(data.answer)}</p>
       <div class="reference-row"><b>视觉引用</b> ${renderReferences(data.reasoning.evidence_ids)}</div>
       <div class="reference-row"><b>知识引用</b> ${renderReferences(data.reasoning.knowledge_ids)}</div>
       <small>${escapeHtml(data.agent_trace.map(item => item.summary).join("；"))}</small>`;
   } catch (error) {
-    answer.textContent = error.message;
+    if (run === analysisVersion && requestId === latestRequestId) answer.textContent = error.name === "AbortError" ? "回答超时，请稍后重试。" : error.message;
   } finally {
-    button.disabled = false;
+    clearTimeout(timeout);
+    if (run === analysisVersion && requestId === latestRequestId) {
+      questionController = null;
+      button.disabled = false;
+    }
   }
 });
 
@@ -264,7 +404,7 @@ async function loadDemoCases() {
   const container = document.querySelector("#demo-cases");
   try {
     const response = await fetch("/api/v1/demo-cases");
-    const cases = await response.json();
+    const cases = await responseData(response, "示例暂不可用，请上传自己的图片。");
     container.innerHTML = cases.map(item => `
       <button type="button" class="demo-case" data-case-id="${escapeHtml(item.case_id)}" title="${escapeHtml(item.description)}">
         <span>${escapeHtml(item.name)}</span>
@@ -287,17 +427,39 @@ async function loadDemoCases() {
 }
 
 async function runDemoCase(caseId, name) {
-  const response = await fetch(`/api/v1/demo-cases/${encodeURIComponent(caseId)}/image`);
-  if (!response.ok) throw new Error("演示案例加载失败");
-  const blob = await response.blob();
-  const extension = blob.type === "image/jpeg" ? "jpg" : "png";
-  const file = new File([blob], `${caseId}.${extension}`, {type: blob.type});
-  const transfer = new DataTransfer();
-  transfer.items.add(file);
-  imageInput.files = transfer.files;
-  imageInput.dispatchEvent(new Event("change"));
-  document.querySelector("#task").value = `运行一键验证案例“${name}”，输出视觉证据、可信推理和人工复核建议。`;
-  form.requestSubmit();
+  stopCaseLoading();
+  const version = caseVersion;
+  const controller = new AbortController();
+  caseController = controller;
+  imageInput.value = "";
+  imageReady = loadSelectedImage(null);
+  imageFeedback.textContent = "正在加载示例图片……";
+  const timeout = setTimeout(() => controller.abort(), 30000);
+  try {
+    const response = await fetch(`/api/v1/demo-cases/${encodeURIComponent(caseId)}/image`, {signal: controller.signal});
+    if (!response.ok) throw new Error("示例图片暂不可用，请重试或上传自己的图片。");
+    const blob = await response.blob();
+    if (version !== caseVersion) return;
+    const extension = blob.type === "image/jpeg" ? "jpg" : "png";
+    const file = new File([blob], `${caseId}.${extension}`, {type: blob.type});
+    const transfer = new DataTransfer();
+    transfer.items.add(file);
+    imageInput.files = transfer.files;
+    document.querySelector("#task").value = `核查示例“${name}”中的火焰与烟雾线索，说明依据及需要现场确认的事项。`;
+    imageReady = loadSelectedImage(file);
+    const loaded = await imageReady;
+    if (version !== caseVersion || !loaded) return;
+    form.requestSubmit();
+  } catch (error) {
+    if (version !== caseVersion) return;
+    const message = error.name === "AbortError" ? "示例加载超时，请重试。" : error.message;
+    imageFeedback.textContent = message;
+    emptyEl.textContent = message;
+    setStatus("示例加载失败", "error");
+  } finally {
+    clearTimeout(timeout);
+    if (version === caseVersion) caseController = null;
+  }
 }
 
 async function updateMetrics() {
@@ -327,9 +489,13 @@ function drawEvidence() {
   const scale = Math.min(availableWidth / sourceImage.naturalWidth, 420 / sourceImage.naturalHeight, 1.5);
   const width = Math.round(sourceImage.naturalWidth * scale);
   const height = Math.round(sourceImage.naturalHeight * scale);
-  evidenceCanvas.width = width;
-  evidenceCanvas.height = height;
-  const context = evidenceCanvas.getContext("2d");
+  paintEvidence(evidenceCanvas, width, height);
+}
+
+function paintEvidence(canvas, width, height) {
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext("2d");
   context.drawImage(sourceImage, 0, 0, width, height);
   if (!latestVision) return;
   const scaleX = width / latestVision.image_width;
