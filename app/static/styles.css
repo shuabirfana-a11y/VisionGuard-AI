@@ -199,6 +199,12 @@ button:disabled { cursor: not-allowed; }
 .classifier-unavailable { background: #fcf7e9; }
 .evidence { font-size: 13px; overflow-wrap: anywhere; }
 .evidence b { color: var(--text); }
+.evidence.is-selected { border-color: #246c9f; box-shadow: 0 0 0 2px #246c9f; }
+button.evidence-ref { display: inline-block; width: auto; max-width: 100%; padding: 3px 7px; margin: 3px 2px; font: inherit; font-size: 12px; color: #185884; background: #eaf0f4; border: 1px solid #b5c6d0; overflow-wrap: anywhere; text-align: left; }
+button.evidence-ref:hover { background: #dceaf4; color: #123f5d; }
+button.compact-button { width: auto; padding: 5px 9px; margin: 0 0 12px; font-size: 12px; }
+#evidence-canvas { cursor: crosshair; }
+.model-meta dd { overflow-wrap: anywhere; }
 .evidence small { display: block; color: var(--muted); margin-top: 6px; }
 .reference-row code, .plan-route code { background: #eaf0f4; color: #335469; overflow-wrap: anywhere; }
 .trace-index { background: #eaf0f4; color: #335469; }

@@ -4,9 +4,10 @@ from pathlib import Path
 from time import perf_counter
 
 import httpx
-from fastapi import APIRouter, File, Form, HTTPException, Response, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, Request, Response, UploadFile
 
 from app.config import settings
+from app import __version__
 from app.schemas import (
     AnalysisRecord,
     AnalysisResponse,
@@ -51,7 +52,7 @@ async def health() -> HealthResponse:
     return HealthResponse(
         status="ok",
         project="VisionGuard AI",
-        version="0.12.0",
+        version=__version__,
         deployment_profile=settings.deployment_profile,
         vision_backend=settings.vision_backend,
         capabilities={
@@ -182,8 +183,9 @@ async def readiness() -> ReadinessResponse:
 
 @router.post("/analyze", response_model=AnalysisResponse)
 async def analyze(
+    request: Request,
     image: UploadFile = File(...),
-    task: str = Form("识别图片中的工业安全风险并给出核查建议"),
+    task: str = Form("识别图片中的工业安全风险并给出核查建议", max_length=1000),
 ) -> AnalysisResponse:
     from app.main import agent, analysis_store
 
@@ -201,7 +203,7 @@ async def analyze(
         acquired = True
         started = perf_counter()
         result = await agent.analyze(payload, image.filename or "upload", task)
-        analysis_store.record(result, (perf_counter() - started) * 1000)
+        analysis_store.record(result, (perf_counter() - started) * 1000, owner=request.state.analysis_owner)
         return result
     except TimeoutError as exc:
         raise HTTPException(status_code=503, detail="当前分析任务较多，请稍后重试") from exc
@@ -236,44 +238,44 @@ async def demo_case_image(case_id: str) -> Response:
 
 
 @router.get("/analyses", response_model=list[AnalysisRecord])
-async def analyses() -> list[AnalysisRecord]:
+async def analyses(request: Request) -> list[AnalysisRecord]:
     from app.main import analysis_store
 
-    return analysis_store.list_records()
+    return analysis_store.list_records(owner=request.state.analysis_owner)
 
 
 @router.get("/metrics", response_model=MetricsResponse)
-async def metrics() -> MetricsResponse:
+async def metrics(request: Request) -> MetricsResponse:
     from app.main import analysis_store
 
-    return analysis_store.metrics()
+    return analysis_store.metrics(owner=request.state.analysis_owner)
 
 
 @router.get("/analyses/{request_id}", response_model=AnalysisResponse)
-async def analysis_detail(request_id: str) -> AnalysisResponse:
+async def analysis_detail(request_id: str, request: Request) -> AnalysisResponse:
     from app.main import analysis_store
 
-    result = analysis_store.get(request_id)
+    result = analysis_store.get(request_id, owner=request.state.analysis_owner)
     if result is None:
         raise HTTPException(status_code=404, detail="分析记录不存在或已过期")
     return result
 
 
 @router.post("/analyses/{request_id}/ask", response_model=FollowUpResponse)
-async def ask_follow_up(request_id: str, request: FollowUpRequest) -> FollowUpResponse:
+async def ask_follow_up(request_id: str, request: Request, payload: FollowUpRequest) -> FollowUpResponse:
     from app.main import agent, analysis_store
 
-    result = analysis_store.get(request_id)
+    result = analysis_store.get(request_id, owner=request.state.analysis_owner)
     if result is None:
         raise HTTPException(status_code=404, detail="分析记录不存在或已过期")
-    return await agent.answer_follow_up(result, request.question)
+    return await agent.answer_follow_up(result, payload.question)
 
 
 @router.get("/analyses/{request_id}/report.html")
-async def analysis_report_html(request_id: str) -> Response:
+async def analysis_report_html(request_id: str, request: Request) -> Response:
     from app.main import analysis_store
 
-    result = analysis_store.get(request_id)
+    result = analysis_store.get(request_id, owner=request.state.analysis_owner)
     if result is None:
         raise HTTPException(status_code=404, detail="分析记录不存在或已过期")
     return Response(
@@ -284,10 +286,10 @@ async def analysis_report_html(request_id: str) -> Response:
 
 
 @router.get("/analyses/{request_id}/report.json")
-async def analysis_report_json(request_id: str) -> Response:
+async def analysis_report_json(request_id: str, request: Request) -> Response:
     from app.main import analysis_store
 
-    result = analysis_store.get(request_id)
+    result = analysis_store.get(request_id, owner=request.state.analysis_owner)
     if result is None:
         raise HTTPException(status_code=404, detail="分析记录不存在或已过期")
     return Response(

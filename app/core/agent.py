@@ -1,9 +1,11 @@
+import asyncio
 from time import perf_counter
 from uuid import uuid4
 
 from app.core.tools import ToolDefinition, ToolRegistry
 from app.schemas import AgentPlan, AgentTraceStep, AnalysisResponse, FollowUpResponse
 from app.services.knowledge import SafetyKnowledgeService
+from app.services.images import prepare_image
 from app.services.report import SafetyReportService
 from app.services.reasoning.base import Reasoner
 from app.services.risk import RiskAnalysisService
@@ -34,7 +36,11 @@ class VisionGuardAgent:
         self.tools.register(ToolDefinition("report.generate", "生成结构化安全辅助报告", self._report))
 
     async def _detect(self, image_bytes: bytes, file_name: str):
-        return await self.detector.detect(image_bytes, file_name)
+        prepared = await asyncio.to_thread(prepare_image, image_bytes)
+        # All branches receive the same oriented pixels, without original EXIF or filename.
+        result = await self.detector.detect(prepared.content, "normalized.png")
+        result.input_image = prepared.metadata
+        return result
 
     async def _retrieve(self, categories: list[str], task: str):
         return await self.knowledge.retrieve(categories, task)

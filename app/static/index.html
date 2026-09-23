@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>现场风险核查 · VisionGuard AI</title>
-  <link rel="stylesheet" href="/static/styles.css?v=20260921">
+  <link rel="stylesheet" href="/static/styles.css?v=20260922">
 </head>
 <body>
   <a class="skip-link" href="#analysis-form">跳到图片分析</a>
@@ -22,14 +22,16 @@
       <form id="analysis-form">
         <label class="upload" for="image">
           <span>选择工业现场图片</span>
-          <small>JPEG / PNG / WebP，最大 10 MB</small>
+          <small>JPEG / PNG / WebP 静态图片，最大 10 MB、2400 万像素</small>
           <input id="image" name="image" type="file" accept="image/jpeg,image/png,image/webp" required aria-describedby="image-feedback">
         </label>
         <p id="image-feedback" class="field-hint" role="status">选图后可先预览，再开始分析。</p>
         <div id="evidence-stage" class="evidence-stage" hidden>
-          <canvas id="evidence-canvas" role="img" aria-label="当前现场图片及火焰烟雾检测框"></canvas>
+          <canvas id="evidence-canvas" role="img" tabindex="-1" aria-label="当前现场图片及火焰烟雾检测框" aria-describedby="evidence-focus-status"></canvas>
           <div class="legend"><span class="fire-dot"></span>火焰 <span class="smoke-dot"></span>烟雾</div>
         </div>
+        <p id="evidence-focus-status" class="field-hint" role="status" hidden></p>
+        <button id="clear-evidence-focus" type="button" class="secondary compact-button" hidden>显示全部检测框</button>
         <label for="task">这次重点核查什么？</label>
         <textarea id="task" name="task" rows="3" maxlength="1000">检查图中是否有火焰或烟雾，说明判断依据和需要现场核查的事项。</textarea>
         <div class="analysis-controls">
@@ -37,7 +39,7 @@
           <button id="cancel-analysis" type="button" class="secondary" hidden>停止等待</button>
         </div>
       </form>
-      <p class="field-hint">图片仅在当前请求中处理；报告用于辅助核查，结论须由现场人员确认。</p>
+      <p class="field-hint">图片不进入分析记录。报告仅限当前浏览器会话访问，清除 Cookie 或服务重启后不可恢复，请及时导出。结论须由现场人员确认。</p>
       <details id="case-library">
         <summary>没有图片？试用示例</summary>
         <p class="field-hint">示例标明来源及授权，合成图片单独说明。示例运行结果不代表模型整体准确率。</p>
@@ -65,6 +67,7 @@
           <button id="evidence-download" class="action-link" type="button" disabled>下载标注证据图</button>
         </div>
         <h3>图片中发现的线索</h3>
+        <p class="field-hint">点击证据编号或定位按钮核对原图；知识引用可直接跳到来源及适用条件。</p>
         <div id="detections" class="cards"></div>
         <h3>为什么得出这个判断</h3>
         <div id="reasoning" class="reasoning-card"></div>
@@ -100,7 +103,7 @@
       </div>
       <div id="readiness-results" class="readiness-results" hidden></div>
       <div id="metrics" class="metrics"></div>
-      <p class="field-hint">统计仅反映本次服务运行，服务重启后清空，不等于模型测试成绩。</p>
+      <p class="field-hint">统计仅反映当前浏览器会话中仍保留的记录，服务重启后清空，不等于模型测试成绩。</p>
       <div class="core-flow" aria-label="分析工作流">
         <span>专业视觉取证</span><i>→</i><span>Agent 任务编排</span><i>→</i>
         <span>安全知识增强</span><i>→</i><span>风险解释与报告</span>
@@ -109,6 +112,6 @@
     </details>
   </main>
   <footer>VisionGuard AI · 工业安全视觉风险辅助分析</footer>
-  <script src="/static/app.js?v=20260921"></script>
+  <script src="/static/app.js?v=20260922"></script>
 </body>
 </html>

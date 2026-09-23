@@ -65,6 +65,10 @@ async def evaluate(
     semaphore = asyncio.Semaphore(concurrency)
 
     async with httpx.AsyncClient(base_url=base_url.rstrip("/"), timeout=timeout) as client:
+        # Establish a shared cookie before concurrent requests start, so reports
+        # and metrics belong to one evaluation session rather than racing cookies.
+        session_response = await client.get("/api/v1/health")
+        session_response.raise_for_status()
         async def evaluate_one(row: dict[str, Any]) -> dict[str, Any]:
             image: Path = row["image"]
             record: dict[str, Any] = {
@@ -119,6 +123,7 @@ async def evaluate(
                             "reasoning_knowledge_ids": reasoning.get("knowledge_ids") or [],
                             "reasoning_safety_boundary": reasoning.get("safety_boundary"),
                             "inference_metadata": body["vision"]["inference"],
+                            "input_image": body["vision"].get("input_image"),
                         }
                     )
                 except Exception as exc:

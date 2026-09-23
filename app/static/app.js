@@ -9,6 +9,8 @@ const emptyEl = document.querySelector("#empty");
 let sourceImage = null;
 let latestVision = null;
 let latestRequestId = null;
+let evidenceTargets = new Map();
+let selectedEvidenceId = null;
 let sourceUrl = null;
 let sourceVersion = 0;
 let analysisVersion = 0;
@@ -99,6 +101,11 @@ function resetAnalysis(message = "图片已准备好，可以开始分析。") {
   waitingTimer = null;
   latestVision = null;
   latestRequestId = null;
+  evidenceTargets.clear();
+  selectedEvidenceId = null;
+  document.querySelector("#evidence-focus-status").hidden = true;
+  document.querySelector("#evidence-focus-status").textContent = "";
+  document.querySelector("#clear-evidence-focus").hidden = true;
   resultEl.hidden = true;
   emptyEl.hidden = false;
   emptyEl.textContent = message;
@@ -146,6 +153,13 @@ function loadSelectedImage(file) {
   return new Promise(resolve => {
     image.onload = () => {
       if (version !== sourceVersion) { resolve(false); return; }
+      if (image.naturalWidth * image.naturalHeight > 24000000 || Math.max(image.naturalWidth, image.naturalHeight) > 12000) {
+        imageFeedback.textContent = "图片像素过多，请缩小至 2400 万像素以内，且单边不超过 12000 像素。";
+        emptyEl.textContent = imageFeedback.textContent;
+        setStatus("图片不可用", "error");
+        resolve(false);
+        return;
+      }
       sourceImage = image;
       evidenceStage.hidden = false;
       imageFeedback.textContent = file.name + " · " + image.naturalWidth + " × " + image.naturalHeight + " 像素";
@@ -235,6 +249,14 @@ form.addEventListener("submit", async (event) => {
 });
 
 function renderResult(data) {
+  evidenceTargets.clear();
+  data.vision.detections.forEach((item, index) => evidenceTargets.set(item.evidence_id, {targetId: `visual-${index}`, detection: item}));
+  if (data.vision.fire_classification?.available) evidenceTargets.set(data.vision.fire_classification.evidence_id, {targetId: "classifier-evidence"});
+  data.knowledge.forEach((item, index) => {
+    const target = {targetId: `knowledge-${index}`};
+    evidenceTargets.set(item.rule_id, target);
+    evidenceTargets.set(item.citation_id, target);
+  });
   latestRequestId = data.request_id;
   emptyEl.hidden = true;
   resultEl.hidden = false;
@@ -282,19 +304,22 @@ function renderResult(data) {
       <div><dt>阈值</dt><dd>置信度 ${Number(inference.confidence_threshold).toFixed(2)}${inference.iou_threshold == null ? "" : ` · IoU ${Number(inference.iou_threshold).toFixed(2)}`}</dd></div>
       <div><dt>推理耗时</dt><dd>${Number(inference.inference_ms).toFixed(2)} ms</dd></div>
       <div><dt>设备</dt><dd>${escapeHtml(inference.device)}</dd></div>
+      ${data.vision.input_image ? `<div><dt>图片校验</dt><dd>${escapeHtml(data.vision.input_image.sha256)}</dd></div>
+      <div><dt>像素处理</dt><dd>${data.vision.image_width} × ${data.vision.image_height}；${data.vision.input_image.orientation_corrected ? "已校正拍摄方向" : "无需旋转"}；${data.vision.input_image.transparency_composited ? "透明区域合成白底" : "RGB输入"}</dd></div>` : ""}
     </dl>`;
   const detections = document.querySelector("#detections");
-  const detectorCards = data.vision.detections.map(item => `
-      <div class="evidence">
+  const detectorCards = data.vision.detections.map((item, index) => `
+      <div class="evidence" id="visual-${index}" tabindex="-1">
         <b>${escapeHtml(item.label)}</b>
         <div>置信度 ${(item.confidence * 100).toFixed(1)}% · 区域占比 ${(item.area_ratio * 100).toFixed(2)}%</div>
         <div>定位 (${item.bbox.x1}, ${item.bbox.y1}) → (${item.bbox.x2}, ${item.bbox.y2})</div>
         <small>证据编号 ${escapeHtml(item.evidence_id)} · 来源 ${escapeHtml(item.source)}</small>
+        <button type="button" class="evidence-ref" data-reference="${escapeHtml(item.evidence_id)}">在图中定位 ${escapeHtml(item.evidence_id)}</button>
       </div>`).join("");
   const classifier = data.vision.fire_classification;
   const classifierCard = classifier
     ? classifier.available
-      ? `<div class="evidence classifier-evidence">
+      ? `<div class="evidence classifier-evidence" id="classifier-evidence" tabindex="-1">
           <b>整图火情复核</b>
           <div>${classifier.prediction ? "判断存在可见火焰" : "未确认可见火焰"} · 概率 ${(classifier.probability * 100).toFixed(1)}%</div>
           <div>阈值 ${(classifier.threshold * 100).toFixed(1)}% · 不提供检测框</div>
@@ -322,16 +347,17 @@ function renderResult(data) {
     <div class="reasoning-boundary">${escapeHtml(reasoning.safety_boundary)}</div>
     ${reasoning.uncertainties.length ? `<ul class="uncertainties">${reasoning.uncertainties.map(item => `<li>${escapeHtml(item)}</li>`).join("")}</ul>` : ""}`;
   document.querySelector("#knowledge").innerHTML = data.knowledge.length
-    ? data.knowledge.map(item => {
+    ? data.knowledge.map((item, index) => {
       const sourceUrl = safeHttpUrl(item.source_url);
       const sourceTitle = sourceUrl
         ? `<a class="source-link" href="${escapeHtml(sourceUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.source_title)}</a>`
         : escapeHtml(item.source_title);
       const authority = { law: "法律", department_rule: "部门规章", internal_method: "方法边界" }[item.authority_level] || "知识依据";
       return `
-      <div class="evidence knowledge-card">
+      <div class="evidence knowledge-card" id="knowledge-${index}" tabindex="-1">
         <b>[${escapeHtml(item.citation_id)}] ${escapeHtml(item.title)}</b>
         <div>${sourceTitle} / ${escapeHtml(item.source_section)}</div>
+        <p>${escapeHtml(item.basis)}</p>
         <small>${escapeHtml(authority)} · 版本 ${escapeHtml(item.source_version)} · 检索相关度 ${(item.retrieval_score * 100).toFixed(1)}%</small>
         <small>检索方式：${escapeHtml(item.retrieval_method || "知识检索")} ${item.matched_terms?.length ? `· 命中词 ${escapeHtml(item.matched_terms.join("、"))}` : ""}</small>
         <div class="knowledge-boundary">适用边界：${escapeHtml(item.applicability || "须结合现场适用条件复核")}</div>
@@ -479,9 +505,56 @@ async function updateMetrics() {
 
 function renderReferences(values) {
   return values.length
-    ? values.map(value => `<code>${escapeHtml(value)}</code>`).join(" ")
+    ? values.map(value => evidenceTargets.has(value)
+      ? `<button type="button" class="evidence-ref" data-reference="${escapeHtml(value)}" aria-label="查看依据 ${escapeHtml(value)}">${escapeHtml(value)}</button>`
+      : `<code>${escapeHtml(value)}</code>`).join(" ")
     : '<span class="muted">无</span>';
 }
+
+function selectEvidence(reference, fromCanvas = false) {
+  const entry = evidenceTargets.get(reference);
+  if (!entry) return;
+  document.querySelectorAll(".evidence.is-selected").forEach(card => card.classList.remove("is-selected"));
+  const card = document.getElementById(entry.targetId);
+  if (!card) return;
+  card.classList.add("is-selected");
+  selectedEvidenceId = entry.detection ? reference : null;
+  drawEvidence();
+  document.querySelector("#clear-evidence-focus").hidden = !entry.detection;
+  const status = document.querySelector("#evidence-focus-status");
+  status.hidden = false;
+  status.textContent = entry.detection
+    ? `已定位 ${reference}：${entry.detection.label}。白色外框标记当前线索，其余检测框仍保留。`
+    : `已定位依据 ${reference}；${entry.targetId === "classifier-evidence" ? "这是整图判断，不提供检测框。" : "请核对来源、内容和适用条件。"}`;
+  const section = card.closest("details");
+  if (section) section.open = true;
+  const destination = entry.detection && !fromCanvas ? evidenceCanvas : card;
+  destination.scrollIntoView({block: "center"});
+  destination.focus({preventScroll: true});
+}
+
+document.addEventListener("click", event => {
+  const button = event.target.closest("button[data-reference]");
+  if (button) selectEvidence(button.dataset.reference);
+});
+
+document.querySelector("#clear-evidence-focus").addEventListener("click", () => {
+  selectedEvidenceId = null;
+  document.querySelectorAll(".evidence.is-selected").forEach(card => card.classList.remove("is-selected"));
+  document.querySelector("#clear-evidence-focus").hidden = true;
+  document.querySelector("#evidence-focus-status").textContent = "已显示全部检测框，不再突出单条证据。";
+  drawEvidence();
+});
+
+evidenceCanvas.addEventListener("click", event => {
+  if (!latestVision) return;
+  const rect = evidenceCanvas.getBoundingClientRect();
+  const x = (event.clientX - rect.left) * latestVision.image_width / rect.width;
+  const y = (event.clientY - rect.top) * latestVision.image_height / rect.height;
+  const hits = latestVision.detections.filter(({bbox: box}) => x >= box.x1 && x <= box.x2 && y >= box.y1 && y <= box.y2);
+  hits.sort((a, b) => (a.bbox.x2-a.bbox.x1)*(a.bbox.y2-a.bbox.y1) - (b.bbox.x2-b.bbox.x1)*(b.bbox.y2-b.bbox.y1));
+  if (hits.length) selectEvidence(hits[0].evidence_id, true);
+});
 
 function drawEvidence() {
   if (!sourceImage || !sourceImage.complete) return;
@@ -489,13 +562,15 @@ function drawEvidence() {
   const scale = Math.min(availableWidth / sourceImage.naturalWidth, 420 / sourceImage.naturalHeight, 1.5);
   const width = Math.round(sourceImage.naturalWidth * scale);
   const height = Math.round(sourceImage.naturalHeight * scale);
-  paintEvidence(evidenceCanvas, width, height);
+  paintEvidence(evidenceCanvas, width, height, selectedEvidenceId);
 }
 
-function paintEvidence(canvas, width, height) {
+function paintEvidence(canvas, width, height, selectedId = null) {
   canvas.width = width;
   canvas.height = height;
   const context = canvas.getContext("2d");
+  context.fillStyle = "white";
+  context.fillRect(0, 0, width, height);
   context.drawImage(sourceImage, 0, 0, width, height);
   if (!latestVision) return;
   const scaleX = width / latestVision.image_width;
@@ -506,10 +581,15 @@ function paintEvidence(canvas, width, height) {
     const y = item.bbox.y1 * scaleY;
     const boxWidth = (item.bbox.x2 - item.bbox.x1) * scaleX;
     const boxHeight = (item.bbox.y2 - item.bbox.y1) * scaleY;
+    if (item.evidence_id === selectedId) {
+      context.strokeStyle = "white";
+      context.lineWidth = Math.max(6, width / 100);
+      context.strokeRect(x, y, boxWidth, boxHeight);
+    }
     context.strokeStyle = color;
     context.lineWidth = Math.max(2, width / 240);
     context.strokeRect(x, y, boxWidth, boxHeight);
-    const text = `${item.label} ${(item.confidence * 100).toFixed(1)}%`;
+    const text = `${item.evidence_id} ${item.label} ${(item.confidence * 100).toFixed(1)}%`;
     context.font = `bold ${Math.max(12, width / 36)}px sans-serif`;
     const textWidth = context.measureText(text).width + 12;
     const labelHeight = Math.max(22, width / 22);
