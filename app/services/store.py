@@ -11,11 +11,15 @@ class AnalysisStore:
     def __init__(self, max_records: int = 100) -> None:
         self._records: deque[AnalysisRecord] = deque(maxlen=max_records)
         self._results: dict[str, AnalysisResponse] = {}
+        self._owners: dict[str, str] = {}
 
-    def record(self, result: AnalysisResponse, total_ms: float) -> AnalysisRecord:
+    def record(self, result: AnalysisResponse, total_ms: float, *, owner: str) -> AnalysisRecord:
+        if not owner:
+            raise ValueError("Analysis owner is required")
         if len(self._records) == self._records.maxlen and self._records:
             oldest = self._records[0]
             self._results.pop(oldest.request_id, None)
+            self._owners.pop(oldest.request_id, None)
         sanitized = result.model_copy(deep=True)
         sanitized.task = self._redact(result.task)[:300]
         sanitized.report.task = sanitized.task
@@ -35,6 +39,7 @@ class AnalysisStore:
         )
         self._records.append(record)
         self._results[sanitized.request_id] = sanitized
+        self._owners[sanitized.request_id] = owner
         return record
 
     @staticmethod
@@ -45,14 +50,16 @@ class AnalysisStore:
         value = re.sub(r"(?<!\d)\d{15,18}[0-9Xx]?(?!\d)", "[identifier]", value)
         return value
 
-    def list_records(self) -> list[AnalysisRecord]:
-        return list(reversed(self._records))
+    def list_records(self, *, owner: str) -> list[AnalysisRecord]:
+        return [item for item in reversed(self._records) if self._owners.get(item.request_id) == owner]
 
-    def get(self, request_id: str) -> AnalysisResponse | None:
+    def get(self, request_id: str, *, owner: str) -> AnalysisResponse | None:
+        if self._owners.get(request_id) != owner:
+            return None
         return self._results.get(request_id)
 
-    def metrics(self) -> MetricsResponse:
-        records = list(self._records)
+    def metrics(self, *, owner: str) -> MetricsResponse:
+        records = self.list_records(owner=owner)
         total = len(records)
         return MetricsResponse(
             total_analyses=total,

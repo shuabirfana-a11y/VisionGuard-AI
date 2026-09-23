@@ -4,7 +4,10 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
+    branches: [main, chore/initial-stage4-baseline]
+
+permissions:
+  contents: read
 
 jobs:
   test:
@@ -22,3 +25,25 @@ jobs:
       - name: Compile check
         run: python -m compileall -q app tests
 
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install browser test tools
+        run: |
+          pip install -e ".[dev,browser]"
+          python -m playwright install --with-deps chromium
+      - name: Browser interaction checks
+        run: pytest -q browser_tests
+      - name: Keep browser screenshots and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-interaction-evidence
+          path: browser-artifacts/
+          retention-days: 14

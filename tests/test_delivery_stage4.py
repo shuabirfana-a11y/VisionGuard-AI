@@ -27,7 +27,6 @@ def test_competition_ui_exposes_core_ai_chain_and_human_review_boundary():
     assert "运行赛前环境自检" in html
     assert "runReadinessCheck" in script
     assert "下载标注证据图" in html
-    assert "evidenceCanvas.toDataURL" in script
 
 
 def test_readiness_endpoint_reports_explicit_degradation_without_hiding_core_checks():

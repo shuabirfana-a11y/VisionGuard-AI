@@ -69,12 +69,23 @@ class VisionFusionResult(BaseModel):
     requires_human_review: bool = True
 
 
+class ImageInputMetadata(BaseModel):
+    sha256: str
+    original_format: str
+    original_width: int
+    original_height: int
+    orientation_corrected: bool
+    transparency_composited: bool
+    processing: str = "exif-oriented-rgb-png-v1"
+
+
 class VisionResult(BaseModel):
     image_width: int
     image_height: int
     detector: str
     inference: InferenceMetadata
     detections: list[DetectionEvidence]
+    input_image: ImageInputMetadata | None = None
     fire_classification: FireClassificationEvidence | None = None
     fusion: VisionFusionResult | None = None
     limitations: list[str] = Field(default_factory=list)

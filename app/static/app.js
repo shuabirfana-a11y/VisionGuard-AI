@@ -9,7 +9,21 @@ const emptyEl = document.querySelector("#empty");
 let sourceImage = null;
 let latestVision = null;
 let latestRequestId = null;
+let evidenceTargets = new Map();
+let selectedEvidenceId = null;
 let sourceUrl = null;
+let sourceVersion = 0;
+let analysisVersion = 0;
+let caseVersion = 0;
+let imageReady = Promise.resolve(false);
+let analysisController = null;
+let questionController = null;
+let caseController = null;
+let waitingTimer = null;
+const analyzeButton = document.querySelector("#analyze-button");
+const cancelButton = document.querySelector("#cancel-analysis");
+const imageFeedback = document.querySelector("#image-feedback");
+const REQUEST_TIMEOUT_MS = 120000;
 
 loadDemoCases();
 updateMetrics();
@@ -54,70 +68,206 @@ async function loadRuntimeProfile() {
     const health = await response.json();
     const capabilities = health.capabilities || {};
     const vision = health.vision_backend === "yolo"
-      ? "专业YOLO视觉定位"
-      : "Demo视觉回退";
+      ? "已配置专业视觉检测，实际运行情况以本次结果为准"
+      : "当前为演示视觉模式，结果仅用于体验操作流程，不能作为专业检测结论";
     const reasoning = capabilities.llm_reasoning === "configured"
-      ? `大模型可信推理（${capabilities.llm_model || "已配置"}）`
-      : "确定性可信推理";
-    const classifier = capabilities.fire_classifier_runtime?.state === "ready"
-      ? "三路火情确认已就绪"
-      : "火情确认分支未就绪";
-    const profileLabels = {"public-demo": "公开评委演示", "competition": "比赛完整配置", "local": "本地运行"};
-    const profile = profileLabels[health.deployment_profile] || health.deployment_profile;
-    notice.textContent = `${profile} ${health.version}：${vision} · ${classifier} · ${reasoning} · 可解释混合RAG。所有结论仍须现场人员复核。`;
+      ? "已配置大模型解释"
+      : "当前使用规则解释";
+    notice.textContent = vision + "。" + reasoning + "。结论须由现场人员复核。";
     notice.classList.toggle("runtime-ready", health.vision_backend === "yolo");
   } catch (error) {
     notice.textContent = `无法读取运行配置：${error.message}`;
   }
 }
 
-imageInput.addEventListener("change", () => {
-  const file = imageInput.files[0];
-  if (!file) return;
-  evidenceDownload.disabled = true;
-  if (sourceUrl) URL.revokeObjectURL(sourceUrl);
-  sourceUrl = URL.createObjectURL(file);
+function setStatus(text, state = "idle") {
+  statusEl.textContent = text;
+  statusEl.className = "status " + state;
+}
+
+function stopCaseLoading() {
+  caseVersion += 1;
+  caseController?.abort();
+  caseController = null;
+}
+
+function resetAnalysis(message = "图片已准备好，可以开始分析。") {
+  analysisVersion += 1;
+  analysisController?.abort();
+  questionController?.abort();
+  analysisController = null;
+  questionController = null;
+  clearInterval(waitingTimer);
+  waitingTimer = null;
   latestVision = null;
-  sourceImage = new Image();
-  sourceImage.onload = () => {
-    evidenceStage.hidden = false;
-    drawEvidence();
-  };
-  sourceImage.src = sourceUrl;
+  latestRequestId = null;
+  evidenceTargets.clear();
+  selectedEvidenceId = null;
+  document.querySelector("#evidence-focus-status").hidden = true;
+  document.querySelector("#evidence-focus-status").textContent = "";
+  document.querySelector("#clear-evidence-focus").hidden = true;
+  resultEl.hidden = true;
+  emptyEl.hidden = false;
+  emptyEl.textContent = message;
+  evidenceDownload.disabled = true;
+  document.querySelector("#html-report").removeAttribute("href");
+  document.querySelector("#json-report").removeAttribute("href");
+  document.querySelector("#json-report").removeAttribute("download");
+  document.querySelector("#qa-answer").hidden = true;
+  document.querySelector("#qa-answer").textContent = "";
+  document.querySelector("#qa-question").value = "";
+  document.querySelector("#qa-form button").disabled = false;
+  document.querySelector(".result-panel").setAttribute("aria-busy", "false");
+  cancelButton.hidden = true;
+  analyzeButton.disabled = !sourceImage;
+  analyzeButton.textContent = "开始风险分析";
+  setStatus(sourceImage ? "待分析" : "等待图片");
+  drawEvidence();
+}
+
+function loadSelectedImage(file) {
+  const version = ++sourceVersion;
+  sourceImage = null;
+  resetAnalysis("正在准备图片……");
+  evidenceStage.hidden = true;
+  if (sourceUrl) URL.revokeObjectURL(sourceUrl);
+  sourceUrl = null;
+  if (!file) {
+    imageFeedback.textContent = "请先选择一张图片。";
+    emptyEl.textContent = "选择图片后开始分析。";
+    return Promise.resolve(false);
+  }
+  const message = !["image/jpeg", "image/png", "image/webp"].includes(file.type)
+    ? "仅支持 JPEG、PNG 或 WebP 图片，请重新选择。"
+    : file.size > 10 * 1024 * 1024 ? "图片超过 10 MB，请压缩后重新选择。"
+    : file.size === 0 ? "图片为空，请重新选择。" : null;
+  if (message) {
+    imageFeedback.textContent = message;
+    emptyEl.textContent = message;
+    setStatus("图片不可用", "error");
+    return Promise.resolve(false);
+  }
+  imageFeedback.textContent = "正在读取图片……";
+  const image = new Image();
+  sourceUrl = URL.createObjectURL(file);
+  return new Promise(resolve => {
+    image.onload = () => {
+      if (version !== sourceVersion) { resolve(false); return; }
+      if (image.naturalWidth * image.naturalHeight > 24000000 || Math.max(image.naturalWidth, image.naturalHeight) > 12000) {
+        imageFeedback.textContent = "图片像素过多，请缩小至 2400 万像素以内，且单边不超过 12000 像素。";
+        emptyEl.textContent = imageFeedback.textContent;
+        setStatus("图片不可用", "error");
+        resolve(false);
+        return;
+      }
+      sourceImage = image;
+      evidenceStage.hidden = false;
+      imageFeedback.textContent = file.name + " · " + image.naturalWidth + " × " + image.naturalHeight + " 像素";
+      emptyEl.textContent = "图片已准备好，可以开始分析。";
+      analyzeButton.disabled = false;
+      setStatus("待分析");
+      drawEvidence();
+      resolve(true);
+    };
+    image.onerror = () => {
+      if (version === sourceVersion) {
+        imageFeedback.textContent = "无法读取这张图片，请换一张完整的图片重试。";
+        emptyEl.textContent = imageFeedback.textContent;
+        setStatus("图片不可用", "error");
+      }
+      resolve(false);
+    };
+    image.src = sourceUrl;
+  });
+}
+
+imageInput.addEventListener("change", () => {
+  stopCaseLoading();
+  imageReady = loadSelectedImage(imageInput.files[0]);
 });
+
+document.querySelector("#task").addEventListener("input", () => {
+  if (latestRequestId || analysisController) {
+    resetAnalysis("核查要求已更改，请重新分析当前图片。");
+  }
+});
+
+cancelButton.addEventListener("click", () => {
+  resetAnalysis("已停止等待本次结果，可修改任务后重新分析。服务器可能仍在完成原任务。");
+});
+
+async function responseData(response, defaultMessage) {
+  let data;
+  try { data = await response.json(); }
+  catch (_) { throw new Error("服务返回异常，请稍后重试。"); }
+  if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : defaultMessage);
+  return data;
+}
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
-  const button = form.querySelector("button");
-  button.disabled = true;
-  button.textContent = "Agent 正在编排视觉、知识与推理工具…";
-  statusEl.textContent = "Agent 分析中";
-  statusEl.className = "status running";
+  const version = sourceVersion;
+  if (!await imageReady || version !== sourceVersion || !sourceImage || analysisController) return;
+  resetAnalysis();
+  const run = analysisVersion;
+  const controller = new AbortController();
+  analysisController = controller;
+  const started = Date.now();
+  analyzeButton.disabled = true;
+  analyzeButton.textContent = "正在分析……";
+  cancelButton.hidden = false;
+  document.querySelector(".result-panel").setAttribute("aria-busy", "true");
+  setStatus("正在分析", "running");
+  emptyEl.textContent = "正在分析当前图片，完成后会显示结果。";
+  waitingTimer = setInterval(() => {
+    if (run === analysisVersion) emptyEl.textContent = "正在分析，已等待 " + Math.floor((Date.now() - started) / 1000) + " 秒。可以停止等待，或继续等候结果。";
+  }, 1000);
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   const payload = new FormData(form);
   try {
-    const response = await fetch("/api/v1/analyze", { method: "POST", body: payload });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.detail || "分析失败");
+    const response = await fetch("/api/v1/analyze", { method: "POST", body: payload, signal: controller.signal });
+    const data = await responseData(response, "分析未完成，请重试。");
+    if (run !== analysisVersion || version !== sourceVersion) return;
     renderResult(data);
     updateMetrics();
-    statusEl.textContent = "分析完成";
-    statusEl.className = "status done";
+    setStatus("分析完成", "done");
   } catch (error) {
-    emptyEl.hidden = false;
-    resultEl.hidden = true;
-    emptyEl.textContent = error.message;
-    statusEl.textContent = "任务失败";
-    statusEl.className = "status error";
+    if (run !== analysisVersion || version !== sourceVersion) return;
+    resetAnalysis(error.name === "AbortError" ? "等待超时，请检查服务状态后重试。" : error.message);
+    setStatus("未完成，可重试", "error");
   } finally {
-    button.disabled = false;
-    button.textContent = "启动 VisionGuard Agent";
+    clearTimeout(timeout);
+    if (run === analysisVersion) {
+      clearInterval(waitingTimer);
+      analysisController = null;
+      analyzeButton.disabled = !sourceImage;
+      analyzeButton.textContent = "开始风险分析";
+      cancelButton.hidden = true;
+      document.querySelector(".result-panel").setAttribute("aria-busy", "false");
+    }
   }
 });
 
 function renderResult(data) {
+  evidenceTargets.clear();
+  data.vision.detections.forEach((item, index) => evidenceTargets.set(item.evidence_id, {targetId: `visual-${index}`, detection: item}));
+  if (data.vision.fire_classification?.available) evidenceTargets.set(data.vision.fire_classification.evidence_id, {targetId: "classifier-evidence"});
+  data.knowledge.forEach((item, index) => {
+    const target = {targetId: `knowledge-${index}`};
+    evidenceTargets.set(item.rule_id, target);
+    evidenceTargets.set(item.citation_id, target);
+  });
   latestRequestId = data.request_id;
   emptyEl.hidden = true;
   resultEl.hidden = false;
+  document.querySelector("#result-context").textContent = "本次任务：" + data.task;
+  const modeNotice = document.querySelector("#result-notice");
+  const notices = [];
+  if (data.vision.inference.backend !== "yolo" || data.vision.inference.fallback_used) notices.push("本次使用演示视觉模式，检测结果不能作为专业模型效果证明。");
+  if (data.reasoning.fallback_used) notices.push("解释服务未完成，本次改用规则解释。");
+  if (data.vision.fire_classification && !data.vision.fire_classification.available) notices.push("火情复核模型不可用，当前缺少该分支的确认。");
+  modeNotice.textContent = notices.join(" ");
+  modeNotice.hidden = notices.length === 0;
   const riskLabels = {critical: "极高", high: "高", medium: "中", low: "低", unknown: "待核查"};
   const riskCard = document.querySelector(".risk-card");
   riskCard.dataset.level = data.risk.overall_level;
@@ -132,7 +282,7 @@ function renderResult(data) {
     <div><span>视觉证据</span><b>${visualEvidenceCount}</b><small>条可引用证据</small></div>
     <div><span>知识依据</span><b>${data.knowledge.length}</b><small>条来源记录</small></div>
     <div><span>Agent 工具</span><b>${toolStepCount}</b><small>个专业工具</small></div>
-    <div><span>回退次数</span><b>${fallbackCount}</b><small>${fallbackCount ? "已明确标注" : "完整专业链路"}</small></div>`;
+    <div><span>回退次数</span><b>${fallbackCount}</b><small>${fallbackCount ? "已明确标注" : "未发生回退"}</small></div>`;
   const plan = data.agent_plan;
   document.querySelector("#agent-plan").innerHTML = `
     <div class="plan-heading"><span>Agent 任务规划</span><b>${escapeHtml(plan.intent)}</b></div>
@@ -142,7 +292,7 @@ function renderResult(data) {
     <small>安全约束：${escapeHtml(plan.safety_constraints.join("；"))}</small>`;
   latestVision = data.vision;
   drawEvidence();
-  evidenceDownload.disabled = false;
+  evidenceDownload.disabled = !sourceImage || !sourceImage.complete;
   const inference = data.vision.inference;
   const fallback = inference.fallback_used
     ? `<span class="fallback-badge">Demo回退：${escapeHtml(inference.fallback_reason || "未说明")}</span>`
@@ -154,20 +304,23 @@ function renderResult(data) {
       <div><dt>阈值</dt><dd>置信度 ${Number(inference.confidence_threshold).toFixed(2)}${inference.iou_threshold == null ? "" : ` · IoU ${Number(inference.iou_threshold).toFixed(2)}`}</dd></div>
       <div><dt>推理耗时</dt><dd>${Number(inference.inference_ms).toFixed(2)} ms</dd></div>
       <div><dt>设备</dt><dd>${escapeHtml(inference.device)}</dd></div>
+      ${data.vision.input_image ? `<div><dt>图片校验</dt><dd>${escapeHtml(data.vision.input_image.sha256)}</dd></div>
+      <div><dt>像素处理</dt><dd>${data.vision.image_width} × ${data.vision.image_height}；${data.vision.input_image.orientation_corrected ? "已校正拍摄方向" : "无需旋转"}；${data.vision.input_image.transparency_composited ? "透明区域合成白底" : "RGB输入"}</dd></div>` : ""}
     </dl>`;
   const detections = document.querySelector("#detections");
-  const detectorCards = data.vision.detections.map(item => `
-      <div class="evidence">
+  const detectorCards = data.vision.detections.map((item, index) => `
+      <div class="evidence" id="visual-${index}" tabindex="-1">
         <b>${escapeHtml(item.label)}</b>
         <div>置信度 ${(item.confidence * 100).toFixed(1)}% · 区域占比 ${(item.area_ratio * 100).toFixed(2)}%</div>
         <div>定位 (${item.bbox.x1}, ${item.bbox.y1}) → (${item.bbox.x2}, ${item.bbox.y2})</div>
         <small>证据编号 ${escapeHtml(item.evidence_id)} · 来源 ${escapeHtml(item.source)}</small>
+        <button type="button" class="evidence-ref" data-reference="${escapeHtml(item.evidence_id)}">在图中定位 ${escapeHtml(item.evidence_id)}</button>
       </div>`).join("");
   const classifier = data.vision.fire_classification;
   const classifierCard = classifier
     ? classifier.available
-      ? `<div class="evidence classifier-evidence">
-          <b>高精度整图火情确认</b>
+      ? `<div class="evidence classifier-evidence" id="classifier-evidence" tabindex="-1">
+          <b>整图火情复核</b>
           <div>${classifier.prediction ? "判断存在可见火焰" : "未确认可见火焰"} · 概率 ${(classifier.probability * 100).toFixed(1)}%</div>
           <div>阈值 ${(classifier.threshold * 100).toFixed(1)}% · 不提供检测框</div>
           <small>证据编号 ${escapeHtml(classifier.evidence_id)} · ${escapeHtml(classifier.model_version)} · ${Number(classifier.inference_ms).toFixed(1)} ms</small>
@@ -194,16 +347,17 @@ function renderResult(data) {
     <div class="reasoning-boundary">${escapeHtml(reasoning.safety_boundary)}</div>
     ${reasoning.uncertainties.length ? `<ul class="uncertainties">${reasoning.uncertainties.map(item => `<li>${escapeHtml(item)}</li>`).join("")}</ul>` : ""}`;
   document.querySelector("#knowledge").innerHTML = data.knowledge.length
-    ? data.knowledge.map(item => {
+    ? data.knowledge.map((item, index) => {
       const sourceUrl = safeHttpUrl(item.source_url);
       const sourceTitle = sourceUrl
         ? `<a class="source-link" href="${escapeHtml(sourceUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.source_title)}</a>`
         : escapeHtml(item.source_title);
       const authority = { law: "法律", department_rule: "部门规章", internal_method: "方法边界" }[item.authority_level] || "知识依据";
       return `
-      <div class="evidence knowledge-card">
+      <div class="evidence knowledge-card" id="knowledge-${index}" tabindex="-1">
         <b>[${escapeHtml(item.citation_id)}] ${escapeHtml(item.title)}</b>
         <div>${sourceTitle} / ${escapeHtml(item.source_section)}</div>
+        <p>${escapeHtml(item.basis)}</p>
         <small>${escapeHtml(authority)} · 版本 ${escapeHtml(item.source_version)} · 检索相关度 ${(item.retrieval_score * 100).toFixed(1)}%</small>
         <small>检索方式：${escapeHtml(item.retrieval_method || "知识检索")} ${item.matched_terms?.length ? `· 命中词 ${escapeHtml(item.matched_terms.join("、"))}` : ""}</small>
         <div class="knowledge-boundary">适用边界：${escapeHtml(item.applicability || "须结合现场适用条件复核")}</div>
@@ -227,36 +381,48 @@ evidenceDownload.addEventListener("click", () => {
   if (!sourceImage || !latestVision || evidenceDownload.disabled) return;
   const link = document.createElement("a");
   link.download = `visionguard-evidence-${latestRequestId || "analysis"}.png`;
-  link.href = evidenceCanvas.toDataURL("image/png");
+  const exportCanvas = document.createElement("canvas");
+  paintEvidence(exportCanvas, sourceImage.naturalWidth, sourceImage.naturalHeight);
+  link.href = exportCanvas.toDataURL("image/png");
   link.click();
 });
 
 document.querySelector("#qa-form").addEventListener("submit", async event => {
   event.preventDefault();
-  if (!latestRequestId) return;
+  if (!latestRequestId || questionController) return;
+  const run = analysisVersion;
+  const requestId = latestRequestId;
+  const controller = new AbortController();
+  questionController = controller;
   const question = document.querySelector("#qa-question").value.trim();
   const answer = document.querySelector("#qa-answer");
   const button = event.currentTarget.querySelector("button");
   button.disabled = true;
   answer.hidden = false;
-  answer.textContent = "Agent 正在基于本次证据回答……";
+  answer.textContent = "正在根据这次结果核对你的问题……";
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
-    const response = await fetch(`/api/v1/analyses/${encodeURIComponent(latestRequestId)}/ask`, {
+    const response = await fetch(`/api/v1/analyses/${encodeURIComponent(requestId)}/ask`, {
       method: "POST",
+      signal: controller.signal,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ question })
     });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.detail || "追问失败");
+    const data = await responseData(response, "暂时无法回答，请重试。");
+    if (run !== analysisVersion || requestId !== latestRequestId) return;
     answer.innerHTML = `
       <p>${escapeHtml(data.answer)}</p>
       <div class="reference-row"><b>视觉引用</b> ${renderReferences(data.reasoning.evidence_ids)}</div>
       <div class="reference-row"><b>知识引用</b> ${renderReferences(data.reasoning.knowledge_ids)}</div>
       <small>${escapeHtml(data.agent_trace.map(item => item.summary).join("；"))}</small>`;
   } catch (error) {
-    answer.textContent = error.message;
+    if (run === analysisVersion && requestId === latestRequestId) answer.textContent = error.name === "AbortError" ? "回答超时，请稍后重试。" : error.message;
   } finally {
-    button.disabled = false;
+    clearTimeout(timeout);
+    if (run === analysisVersion && requestId === latestRequestId) {
+      questionController = null;
+      button.disabled = false;
+    }
   }
 });
 
@@ -264,7 +430,7 @@ async function loadDemoCases() {
   const container = document.querySelector("#demo-cases");
   try {
     const response = await fetch("/api/v1/demo-cases");
-    const cases = await response.json();
+    const cases = await responseData(response, "示例暂不可用，请上传自己的图片。");
     container.innerHTML = cases.map(item => `
       <button type="button" class="demo-case" data-case-id="${escapeHtml(item.case_id)}" title="${escapeHtml(item.description)}">
         <span>${escapeHtml(item.name)}</span>
@@ -287,17 +453,39 @@ async function loadDemoCases() {
 }
 
 async function runDemoCase(caseId, name) {
-  const response = await fetch(`/api/v1/demo-cases/${encodeURIComponent(caseId)}/image`);
-  if (!response.ok) throw new Error("演示案例加载失败");
-  const blob = await response.blob();
-  const extension = blob.type === "image/jpeg" ? "jpg" : "png";
-  const file = new File([blob], `${caseId}.${extension}`, {type: blob.type});
-  const transfer = new DataTransfer();
-  transfer.items.add(file);
-  imageInput.files = transfer.files;
-  imageInput.dispatchEvent(new Event("change"));
-  document.querySelector("#task").value = `运行一键验证案例“${name}”，输出视觉证据、可信推理和人工复核建议。`;
-  form.requestSubmit();
+  stopCaseLoading();
+  const version = caseVersion;
+  const controller = new AbortController();
+  caseController = controller;
+  imageInput.value = "";
+  imageReady = loadSelectedImage(null);
+  imageFeedback.textContent = "正在加载示例图片……";
+  const timeout = setTimeout(() => controller.abort(), 30000);
+  try {
+    const response = await fetch(`/api/v1/demo-cases/${encodeURIComponent(caseId)}/image`, {signal: controller.signal});
+    if (!response.ok) throw new Error("示例图片暂不可用，请重试或上传自己的图片。");
+    const blob = await response.blob();
+    if (version !== caseVersion) return;
+    const extension = blob.type === "image/jpeg" ? "jpg" : "png";
+    const file = new File([blob], `${caseId}.${extension}`, {type: blob.type});
+    const transfer = new DataTransfer();
+    transfer.items.add(file);
+    imageInput.files = transfer.files;
+    document.querySelector("#task").value = `核查示例“${name}”中的火焰与烟雾线索，说明依据及需要现场确认的事项。`;
+    imageReady = loadSelectedImage(file);
+    const loaded = await imageReady;
+    if (version !== caseVersion || !loaded) return;
+    form.requestSubmit();
+  } catch (error) {
+    if (version !== caseVersion) return;
+    const message = error.name === "AbortError" ? "示例加载超时，请重试。" : error.message;
+    imageFeedback.textContent = message;
+    emptyEl.textContent = message;
+    setStatus("示例加载失败", "error");
+  } finally {
+    clearTimeout(timeout);
+    if (version === caseVersion) caseController = null;
+  }
 }
 
 async function updateMetrics() {
@@ -317,9 +505,56 @@ async function updateMetrics() {
 
 function renderReferences(values) {
   return values.length
-    ? values.map(value => `<code>${escapeHtml(value)}</code>`).join(" ")
+    ? values.map(value => evidenceTargets.has(value)
+      ? `<button type="button" class="evidence-ref" data-reference="${escapeHtml(value)}" aria-label="查看依据 ${escapeHtml(value)}">${escapeHtml(value)}</button>`
+      : `<code>${escapeHtml(value)}</code>`).join(" ")
     : '<span class="muted">无</span>';
 }
+
+function selectEvidence(reference, fromCanvas = false) {
+  const entry = evidenceTargets.get(reference);
+  if (!entry) return;
+  document.querySelectorAll(".evidence.is-selected").forEach(card => card.classList.remove("is-selected"));
+  const card = document.getElementById(entry.targetId);
+  if (!card) return;
+  card.classList.add("is-selected");
+  selectedEvidenceId = entry.detection ? reference : null;
+  drawEvidence();
+  document.querySelector("#clear-evidence-focus").hidden = !entry.detection;
+  const status = document.querySelector("#evidence-focus-status");
+  status.hidden = false;
+  status.textContent = entry.detection
+    ? `已定位 ${reference}：${entry.detection.label}。白色外框标记当前线索，其余检测框仍保留。`
+    : `已定位依据 ${reference}；${entry.targetId === "classifier-evidence" ? "这是整图判断，不提供检测框。" : "请核对来源、内容和适用条件。"}`;
+  const section = card.closest("details");
+  if (section) section.open = true;
+  const destination = entry.detection && !fromCanvas ? evidenceCanvas : card;
+  destination.scrollIntoView({block: "center"});
+  destination.focus({preventScroll: true});
+}
+
+document.addEventListener("click", event => {
+  const button = event.target.closest("button[data-reference]");
+  if (button) selectEvidence(button.dataset.reference);
+});
+
+document.querySelector("#clear-evidence-focus").addEventListener("click", () => {
+  selectedEvidenceId = null;
+  document.querySelectorAll(".evidence.is-selected").forEach(card => card.classList.remove("is-selected"));
+  document.querySelector("#clear-evidence-focus").hidden = true;
+  document.querySelector("#evidence-focus-status").textContent = "已显示全部检测框，不再突出单条证据。";
+  drawEvidence();
+});
+
+evidenceCanvas.addEventListener("click", event => {
+  if (!latestVision) return;
+  const rect = evidenceCanvas.getBoundingClientRect();
+  const x = (event.clientX - rect.left) * latestVision.image_width / rect.width;
+  const y = (event.clientY - rect.top) * latestVision.image_height / rect.height;
+  const hits = latestVision.detections.filter(({bbox: box}) => x >= box.x1 && x <= box.x2 && y >= box.y1 && y <= box.y2);
+  hits.sort((a, b) => (a.bbox.x2-a.bbox.x1)*(a.bbox.y2-a.bbox.y1) - (b.bbox.x2-b.bbox.x1)*(b.bbox.y2-b.bbox.y1));
+  if (hits.length) selectEvidence(hits[0].evidence_id, true);
+});
 
 function drawEvidence() {
   if (!sourceImage || !sourceImage.complete) return;
@@ -327,9 +562,15 @@ function drawEvidence() {
   const scale = Math.min(availableWidth / sourceImage.naturalWidth, 420 / sourceImage.naturalHeight, 1.5);
   const width = Math.round(sourceImage.naturalWidth * scale);
   const height = Math.round(sourceImage.naturalHeight * scale);
-  evidenceCanvas.width = width;
-  evidenceCanvas.height = height;
-  const context = evidenceCanvas.getContext("2d");
+  paintEvidence(evidenceCanvas, width, height, selectedEvidenceId);
+}
+
+function paintEvidence(canvas, width, height, selectedId = null) {
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext("2d");
+  context.fillStyle = "white";
+  context.fillRect(0, 0, width, height);
   context.drawImage(sourceImage, 0, 0, width, height);
   if (!latestVision) return;
   const scaleX = width / latestVision.image_width;
@@ -340,10 +581,15 @@ function drawEvidence() {
     const y = item.bbox.y1 * scaleY;
     const boxWidth = (item.bbox.x2 - item.bbox.x1) * scaleX;
     const boxHeight = (item.bbox.y2 - item.bbox.y1) * scaleY;
+    if (item.evidence_id === selectedId) {
+      context.strokeStyle = "white";
+      context.lineWidth = Math.max(6, width / 100);
+      context.strokeRect(x, y, boxWidth, boxHeight);
+    }
     context.strokeStyle = color;
     context.lineWidth = Math.max(2, width / 240);
     context.strokeRect(x, y, boxWidth, boxHeight);
-    const text = `${item.label} ${(item.confidence * 100).toFixed(1)}%`;
+    const text = `${item.evidence_id} ${item.label} ${(item.confidence * 100).toFixed(1)}%`;
     context.font = `bold ${Math.max(12, width / 36)}px sans-serif`;
     const textWidth = context.measureText(text).width + 12;
     const labelHeight = Math.max(22, width / 22);
